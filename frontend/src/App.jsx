@@ -16,6 +16,18 @@ const VulnerabilityIntelligence = lazy(() => import('./pages/VulnerabilityIntell
 const ThreatIntel = lazy(() => import('./pages/ThreatIntel'));
 const LiveAttackFeed = lazy(() => import('./pages/LiveAttackFeed'));
 const TerminalConsole = lazy(() => import('./pages/TerminalConsole'));
+const AttackSimulator = lazy(() => import('./pages/AttackSimulator'));
+const PhishingDetector = lazy(() => import('./pages/PhishingDetector'));
+const LogAnalyzer = lazy(() => import('./pages/LogAnalyzer'));
+const MalwareAnalyzer = lazy(() => import('./pages/MalwareAnalyzer'));
+const ThreatMap = lazy(() => import('./pages/ThreatMap'));
+const CommandCenter = lazy(() => import('./pages/CommandCenter'));
+const VoiceAssistant = lazy(() => import('./pages/VoiceAssistant'));
+const SocActivityFeed = lazy(() => import('./pages/SocActivityFeed'));
+const IntegrityMonitor = lazy(() => import('./pages/IntegrityMonitor'));
+const LockdownMode = lazy(() => import('./pages/LockdownMode'));
+const ThreatPrediction = lazy(() => import('./pages/ThreatPrediction'));
+const AIRecommendations = lazy(() => import('./pages/AIRecommendations'));
 
 function RouteFallback() {
   return (
@@ -35,6 +47,18 @@ export default function App() {
       { path: '/prompt-firewall', element: <ProtectedRoute><PromptFirewall /></ProtectedRoute> },
       { path: '/vulnerability-intelligence', element: <ProtectedRoute><VulnerabilityIntelligence /></ProtectedRoute> },
       { path: '/live-attack-feed', element: <ProtectedRoute><LiveAttackFeed /></ProtectedRoute> },
+      { path: '/attack-simulator', element: <ProtectedRoute><AttackSimulator /></ProtectedRoute> },
+      { path: '/phishing-detector', element: <ProtectedRoute><PhishingDetector /></ProtectedRoute> },
+      { path: '/log-analyzer', element: <ProtectedRoute><LogAnalyzer /></ProtectedRoute> },
+      { path: '/malware-analyzer', element: <ProtectedRoute><MalwareAnalyzer /></ProtectedRoute> },
+      { path: '/threat-map', element: <ProtectedRoute><ThreatMap /></ProtectedRoute> },
+      { path: '/command-center', element: <ProtectedRoute><CommandCenter /></ProtectedRoute> },
+      { path: '/voice-assistant', element: <ProtectedRoute><VoiceAssistant /></ProtectedRoute> },
+      { path: '/soc-activity-feed', element: <ProtectedRoute><SocActivityFeed /></ProtectedRoute> },
+      { path: '/integrity-monitor', element: <ProtectedRoute><IntegrityMonitor /></ProtectedRoute> },
+      { path: '/lockdown-mode', element: <ProtectedRoute><LockdownMode /></ProtectedRoute> },
+      { path: '/threat-prediction', element: <ProtectedRoute><ThreatPrediction /></ProtectedRoute> },
+      { path: '/ai-recommendations', element: <ProtectedRoute><AIRecommendations /></ProtectedRoute> },
       { path: '/threat-intel', element: <ProtectedRoute><ThreatIntel /></ProtectedRoute> },
       { path: '/terminal-console', element: <ProtectedRoute><TerminalConsole /></ProtectedRoute> },
       { path: '/threat-hunter', element: <ProtectedRoute><ThreatHunter /></ProtectedRoute> },

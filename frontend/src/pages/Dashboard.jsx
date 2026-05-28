@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useNavigate } from 'react-router-dom';
@@ -16,13 +16,19 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pendingReload, setPendingReload] = useState(false);
 
-  async function loadMetrics(options = {}) {
+  const loadMetrics = useCallback(async (options = {}) => {
     const data = await getEnterpriseDashboard(options);
     setMetrics(data);
     setLastUpdated(new Date());
     return true;
-  }
+  }, []);
+
+  const scheduleReload = useCallback(() => {
+    setPendingReload((current) => current || true);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -35,14 +41,19 @@ export default function Dashboard() {
       });
 
     const ws = createAlertsSocket((evt) => {
-      if (evt.payload) {
+      if (evt?.channel === 'simulation_alert' || evt?.channel === 'attack_simulation') {
+        if (evt.payload) {
+          setAlerts((prev) => [evt.payload, ...prev].slice(0, 25));
+          scheduleReload();
+        }
+      } else if (evt.payload) {
         setAlerts((prev) => [evt.payload, ...prev].slice(0, 25));
-        void loadMetrics().catch(() => {});
+        scheduleReload();
       }
     });
 
     const refreshTimer = window.setInterval(() => {
-      void loadMetrics().catch(() => {});
+      scheduleReload();
     }, 20000);
 
     return () => {
@@ -56,6 +67,16 @@ export default function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!pendingReload) return undefined;
+    const timer = window.setTimeout(() => {
+      setPendingReload(false);
+      void loadMetrics().catch(() => {});
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [loadMetrics, pendingReload]);
+
   const severityData = useMemo(() => metrics?.severity_distribution || [], [metrics]);
   const attackTimelineData = useMemo(() => metrics?.attack_timeline || [], [metrics]);
   const heatmapData = useMemo(() => metrics?.risk_heatmap || [], [metrics]);
@@ -64,7 +85,6 @@ export default function Dashboard() {
   const heatmapTimes = useMemo(() => [...new Set(heatmapData.map((item) => item.time))].slice(0, 8), [heatmapData]);
   const heatmapLookup = useMemo(() => new Map(heatmapData.map((item) => [`${item.time}-${item.severity}`, item.value])), [heatmapData]);
   const heatmapSeverities = ['critical', 'high', 'medium', 'low'];
-  const [refreshing, setRefreshing] = useState(false);
 
   function heatmapIntensity(value) {
     const alpha = Math.min(0.9, 0.15 + value * 0.2);
@@ -74,6 +94,7 @@ export default function Dashboard() {
   const reportActions = [
     { label: 'Vulnerability Report', helper: 'Generate from the latest source scans', action: () => navigate('/analyst') },
     { label: 'Incident Report', helper: 'Package containment and recovery guidance', action: () => navigate('/incident-response') },
+    { label: 'Attack Simulator', helper: 'Launch a live AI attack demo', action: () => navigate('/attack-simulator') },
   ];
 
   const reportReadyCount = (metrics?.total_scans || 0) + (metrics?.recent_threats?.length || 0);
@@ -89,7 +110,7 @@ export default function Dashboard() {
 
   return (
     <AppShell>
-      <div className="space-y-5">
+        <div className="space-y-5">
         <div>
           <h1 className="font-display text-3xl md:text-4xl text-cyan tracking-wide">SentinelAI SOC Command Center</h1>
           <p className="text-white/70">Real-time cyber defense analytics, threat telemetry, and AI assistant orchestration.</p>
@@ -108,7 +129,7 @@ export default function Dashboard() {
         {metrics && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5 md:col-span-2">
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass-card content-surface p-5 md:col-span-2">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.25em] text-white/40">Enterprise posture</p>
@@ -144,23 +165,66 @@ export default function Dashboard() {
               <KpiCard title="Threat Events" value={metrics.total_threats} accent="danger" />
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <KpiCard title="Total Attacks Blocked" value={metrics.total_attacks_blocked || 0} subtitle="Simulator and alert feed" />
+              <KpiCard title="Active Threats" value={metrics.active_threats || 0} accent="danger" subtitle="High + critical events" />
+              <KpiCard title="AI Risk Score" value={metrics.ai_risk_score || 0} accent="warning" subtitle="Avg simulated risk" />
+              <KpiCard title="Critical Alerts" value={metrics.critical_alerts || 0} accent="danger" subtitle="Requires immediate review" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <KpiCard title="Firewall Status" value={metrics.firewall_status || 'Enabled'} subtitle="Policy enforcement" />
+              <KpiCard title="AI Threat Level" value={metrics.ai_threat_level || 'Medium'} accent="warning" subtitle="Local analytic risk" />
+              <KpiCard title="System Integrity" value={metrics.system_integrity ?? 0} accent="cyan" subtitle="Integrity index" />
+              <KpiCard title="Vulnerabilities Detected" value={metrics.vulnerabilities_detected || 0} accent="danger" subtitle="Open findings" />
+            </div>
+
+            <div className="glass-card content-surface p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-cyan/15">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-white/40">AI Attack Simulator</p>
+                <h2 className="font-display text-2xl text-cyan mt-1">Launch live attack scenarios for demos and training</h2>
+                <p className="text-white/60 mt-1">Generate realistic attack events, watch websocket updates, and get AI mitigation guidance in one flow.</p>
+              </div>
+              <button onClick={() => navigate('/attack-simulator')} className="px-4 py-2 rounded bg-warning text-black font-semibold shadow-lg shadow-warning/20">
+                Open Simulator
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="glass-card p-4">
+              <button onClick={() => navigate('/phishing-detector')} className="glass-card content-surface p-4 text-left border border-white/10 hover:border-cyan/40 transition">
+                <p className="text-white/45 text-xs uppercase tracking-[0.2em]">New Module</p>
+                <h3 className="font-display text-xl text-cyan mt-1">AI Phishing Detector</h3>
+                <p className="text-white/60 text-sm mt-1">Analyze emails, links, and urgency tactics locally.</p>
+              </button>
+              <button onClick={() => navigate('/log-analyzer')} className="glass-card content-surface p-4 text-left border border-white/10 hover:border-cyan/40 transition">
+                <p className="text-white/45 text-xs uppercase tracking-[0.2em]">New Module</p>
+                <h3 className="font-display text-xl text-cyan mt-1">AI Log Analyzer</h3>
+                <p className="text-white/60 text-sm mt-1">Detect brute force attempts, repeated failures, and suspicious IP activity.</p>
+              </button>
+              <button onClick={() => navigate('/threat-map')} className="glass-card content-surface p-4 text-left border border-white/10 hover:border-cyan/40 transition">
+                <p className="text-white/45 text-xs uppercase tracking-[0.2em]">New Module</p>
+                <h3 className="font-display text-xl text-cyan mt-1">Threat Heatmap</h3>
+                <p className="text-white/60 text-sm mt-1">View live global attack markers and real-time cyber feed updates.</p>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="glass-card content-surface p-4">
                 <p className="text-white/50 text-xs uppercase tracking-[0.2em]">Threat Reputation Avg</p>
                 <p className="text-3xl text-cyan mt-2">{metrics.threat_reputation_avg || 0}</p>
               </div>
-              <div className="glass-card p-4">
+              <div className="glass-card content-surface p-4">
                 <p className="text-white/50 text-xs uppercase tracking-[0.2em]">Intel Profiles</p>
                 <p className="text-3xl text-lime mt-2">{metrics.threat_intel?.length || 0}</p>
               </div>
-              <div className="glass-card p-4">
+              <div className="glass-card content-surface p-4">
                 <p className="text-white/50 text-xs uppercase tracking-[0.2em]">Scan Status</p>
                 <p className={`text-3xl mt-2 ${metrics.scan_status?.healthy ? 'text-lime' : 'text-warning'}`}>{metrics.scan_status?.message || 'Monitoring active'}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4">
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass-card content-surface p-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.25em] text-white/40">Threat Intel Spotlight</p>
@@ -209,7 +273,7 @@ export default function Dashboard() {
                 </div>
               </motion.div>
 
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-4">
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass-card content-surface p-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.25em] text-white/40">Security Reports</p>

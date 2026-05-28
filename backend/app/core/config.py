@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-1.5-flash"
+    ollama_base_url: str | None = None
+    ollama_model: str = "llama3"
     virustotal_api_key: str | None = None
     threatfox_api_key: str | None = None
     abuseipdb_api_key: str | None = None

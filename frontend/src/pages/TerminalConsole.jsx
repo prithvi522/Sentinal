@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AppShell from '../components/AppShell';
+
+const MAX_LOGS = 50;
 
 export default function TerminalConsole() {
   const [command, setCommand] = useState('');
-  const [output, setOutput] = useState('');
+  const [output, setOutput] = useState([]);
   const [running, setRunning] = useState(false);
+  const outputRef = useRef(null);
+
+  useEffect(() => {
+    if (!outputRef.current) return;
+    outputRef.current.scrollTop = outputRef.current.scrollHeight;
+  }, [output]);
 
   async function runCommand(e) {
     e.preventDefault();
@@ -17,10 +25,13 @@ export default function TerminalConsole() {
         body: JSON.stringify({ command }),
       });
       const data = await res.json();
-      setOutput((prev) => `${prev}\n$ ${command}\n${data.output}\n`);
+      setOutput((prev) => {
+        const next = [...prev, `$ ${command}`, String(data.output || '').trim()].filter(Boolean).slice(-MAX_LOGS);
+        return next;
+      });
       setCommand('');
     } catch (err) {
-      setOutput((prev) => `${prev}\nError: ${String(err)}`);
+      setOutput((prev) => [...prev, `Error: ${String(err)}`].slice(-MAX_LOGS));
     } finally {
       setRunning(false);
     }
@@ -42,7 +53,7 @@ export default function TerminalConsole() {
             </div>
           </form>
 
-          <pre className="bg-black/10 p-3 rounded text-sm text-white/80 h-60 overflow-auto">{output || 'Console output will appear here.'}</pre>
+          <pre ref={outputRef} className="bg-black/10 p-3 rounded text-sm text-white/80 h-60 overflow-auto transform-gpu will-change-transform">{output.length ? output.join('\n') : 'Console output will appear here.'}</pre>
         </div>
       </div>
     </AppShell>

@@ -8,6 +8,8 @@ from app.core.config import settings
 from app.db.session import Base, SessionLocal, engine
 from app.middleware.security import SecurityMiddleware
 from app.models.threat_event import ThreatEvent
+from app.services.demo_feed import generate_demo_feed_item, generate_demo_notification
+from app.services.lockdown_controller import get_security_state
 from app.services.simulation import simulated_attack_event
 from app.services.websocket_manager import ws_manager
 
@@ -82,10 +84,82 @@ async def simulation_loop():
         await asyncio.sleep(settings.simulation_interval_seconds)
 
 
+async def demo_feed_loop():
+    while True:
+        item = generate_demo_feed_item()
+        await ws_manager.broadcast_json({"channel": "threat_feed_update", "payload": item})
+        await ws_manager.broadcast_json({"channel": "threat_map_update", "payload": item})
+        if item["severity"] in {"HIGH", "CRITICAL"}:
+            await ws_manager.broadcast_json({"channel": "notification", "payload": generate_demo_notification(item)})
+        await asyncio.sleep(12)
+
+
+async def security_center_loop():
+    cycle = 0
+    while True:
+        state = get_security_state()
+        if state["mode"] == "LOCKDOWN":
+            activity = [
+                "[LOCKDOWN] AI Firewall Enabled",
+                "[LOCKDOWN] Blocking suspicious traffic",
+                "[LOCKDOWN] Isolating infected systems",
+                "[LOCKDOWN] Emergency protocols activated",
+            ]
+            integrity_score = max(25, 45 - cycle % 7)
+            threat_level = "CRITICAL"
+        elif state["mode"] == "DEFENSE":
+            activity = [
+                "[DEFENSE] Tightening perimeter rules",
+                "[DEFENSE] Verifying endpoint telemetry",
+                "[DEFENSE] Elevated monitoring in effect",
+            ]
+            integrity_score = 72 - (cycle % 4)
+            threat_level = "HIGH"
+        elif state["mode"] == "SAFE":
+            activity = [
+                "[SAFE] Passive monitoring active",
+                "[SAFE] No critical anomalies detected",
+                "[SAFE] Routine SOC health checks complete",
+            ]
+            integrity_score = 96 - (cycle % 2)
+            threat_level = "LOW"
+        else:
+            activity = [
+                "[INFO] Monitoring network traffic",
+                "[HIGH] Prompt injection blocked",
+                "[CRITICAL] Malware behavior detected",
+                "[SAFE] Firewall operational",
+            ]
+            integrity_score = 84 - (cycle % 6)
+            threat_level = "MEDIUM"
+
+        payload = {
+            "mode": state["mode"],
+            "lockdown": state["lockdown"],
+            "threat_level": threat_level,
+            "firewall_status": "Enabled" if state["mode"] != "SAFE" else "Standby",
+            "system_integrity": integrity_score,
+            "cpu_usage": 34 + (cycle % 22),
+            "memory_usage": 41 + (cycle % 18),
+            "active_scans": 3 + (cycle % 4),
+            "ai_load": 28 + (cycle % 20),
+            "critical_alerts": 1 if state["mode"] == "LOCKDOWN" else 0,
+            "activity": activity,
+            "timestamp": cycle,
+        }
+
+        await ws_manager.broadcast_json({"channel": "soc_activity", "payload": {"entry": activity[cycle % len(activity)], "severity": threat_level, "timestamp": cycle}})
+        await ws_manager.broadcast_json({"channel": "integrity_update", "payload": payload})
+        await asyncio.sleep(6)
+        cycle += 1
+
+
 @app.on_event("startup")
 async def on_startup():
     Base.metadata.create_all(bind=engine)
     app.state.simulation_task = asyncio.create_task(simulation_loop())
+    app.state.demo_feed_task = asyncio.create_task(demo_feed_loop())
+    app.state.security_center_task = asyncio.create_task(security_center_loop())
 
 
 @app.on_event("shutdown")
@@ -93,3 +167,9 @@ async def on_shutdown():
     task = getattr(app.state, "simulation_task", None)
     if task:
         task.cancel()
+    demo_task = getattr(app.state, "demo_feed_task", None)
+    if demo_task:
+        demo_task.cancel()
+    security_task = getattr(app.state, "security_center_task", None)
+    if security_task:
+        security_task.cancel()

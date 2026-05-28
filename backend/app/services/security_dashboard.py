@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import Counter
 from datetime import datetime, timedelta
 
@@ -18,6 +19,7 @@ class SecurityDashboard:
         "vulnerability_intelligence": "Vulnerability Intel",
         "ai_analyst": "AI Analyst",
         "prompt_firewall": "Prompt Firewall",
+        "attack_simulator": "Attack Simulator",
         "threat_hunter": "Threat Hunter",
         "incident_response": "Incident Response",
         "ai_copilot": "Security Copilot",
@@ -47,6 +49,8 @@ class SecurityDashboard:
             return "vulnerability_intelligence"
         if "/prompt-firewall/" in path:
             return "prompt_firewall"
+        if "/attack-simulator/" in path or "/simulate-attack" in path:
+            return "attack_simulator"
         if "/threats/" in path:
             return "threat_hunter"
         if "/incidents/" in path:
@@ -67,6 +71,7 @@ class SecurityDashboard:
             ("vulnerability_intelligence", "Vulnerability Intel"),
             ("ai_analyst", "AI Analyst"),
             ("prompt_firewall", "Prompt Firewall"),
+            ("attack_simulator", "Attack Simulator"),
             ("threat_hunter", "Threat Hunter"),
             ("incident_response", "Incident Response"),
             ("ai_copilot", "Security Copilot"),
@@ -139,9 +144,14 @@ class SecurityDashboard:
         recent_activity = (
             db.query(AuditLog)
             .order_by(AuditLog.created_at.desc())
-            .limit(20)
+            .limit(40)
             .all()
         )
+        attack_events = []
+        for threat in recent_threats:
+            metadata = threat.event_metadata or {}
+            if metadata.get("attack"):
+                attack_events.append(metadata)
 
         # Release the DB connection before any awaited enrichment work runs.
         db.close()
@@ -155,8 +165,10 @@ class SecurityDashboard:
         unique_recent_ips = unique_recent_ips[:5]
 
         intel_profiles = []
-        for source_ip in unique_recent_ips:
-            intel_profiles.append(await ThreatIntelligence.enrich_ip(source_ip))
+        if unique_recent_ips:
+            intel_profiles = await asyncio.gather(
+                *(ThreatIntelligence.enrich_ip(source_ip) for source_ip in unique_recent_ips)
+            )
 
         severity_distribution = Counter([t.severity for t in recent_threats])
         attack_timeline = Counter([t.created_at.strftime("%H:00") for t in recent_threats])
@@ -168,6 +180,17 @@ class SecurityDashboard:
         intel_penalty = sum(profile["threat_reputation_score"] for profile in intel_profiles) // max(1, len(intel_profiles)) if intel_profiles else 0
         risk_score = max(0, 100 - int(float(avg_risk) * 0.85) - min(25, total_threats // 4) - min(20, intel_penalty // 8))
         security_score = max(0, risk_score)
+        total_attacks_blocked = sum(1 for item in attack_events if str(item.get("status", "")).lower() == "blocked")
+        critical_alerts = sum(1 for threat in recent_threats if str(threat.severity).lower() == "critical")
+        active_threats = sum(1 for threat in recent_threats if str(threat.severity).lower() in {"high", "critical"})
+        ai_risk_score = round(
+            sum(int(item.get("risk_score", 0)) for item in attack_events) / len(attack_events),
+            2,
+        ) if attack_events else round(float(risk_score), 2)
+        firewall_status = "Enabled" if security_score >= 60 else "Attention Required"
+        ai_threat_level = "Critical" if security_score < 35 else "High" if security_score < 55 else "Medium" if security_score < 75 else "Low"
+        system_integrity = max(0, 100 - (critical_alerts * 8) - (active_threats * 2) - high_scans)
+        vulnerabilities_detected = high_scans + total_attacks_blocked
 
         fallback = {
             "recommendations": [
@@ -228,6 +251,14 @@ class SecurityDashboard:
             ],
             "threat_intel": intel_profiles,
             "threat_reputation_avg": round(sum(profile["threat_reputation_score"] for profile in intel_profiles) / len(intel_profiles), 2) if intel_profiles else 0,
+            "total_attacks_blocked": total_attacks_blocked,
+            "active_threats": active_threats,
+            "ai_risk_score": ai_risk_score,
+            "critical_alerts": critical_alerts,
+            "firewall_status": firewall_status,
+            "ai_threat_level": ai_threat_level,
+            "system_integrity": system_integrity,
+            "vulnerabilities_detected": vulnerabilities_detected,
             "ai_recommendations": ai_result.get("recommendations", fallback["recommendations"]),
             "scan_status": {
                 "healthy": security_score >= 70,

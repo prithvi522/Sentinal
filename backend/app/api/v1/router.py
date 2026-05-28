@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, copilot, dashboard, demo, incidents, intelligence, prompts, reports, security, threats, websocket, terminal
+from app.api.v1.endpoints import attack_simulator, auth, copilot, dashboard, demo, incidents, intelligence, log_analyzer, malware_analyzer, phishing_detector, prompts, reports, security, security_center, threats, websocket, terminal
 
 
 api_router = APIRouter()
@@ -16,3 +16,8 @@ api_router.include_router(demo.router, prefix="/demo", tags=["demo"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(websocket.router, prefix="/ws", tags=["websocket"])
 api_router.include_router(terminal.router, prefix="/terminal", tags=["terminal"])
+api_router.include_router(attack_simulator.router, tags=["attack-simulator"])
+api_router.include_router(phishing_detector.router, prefix="/phishing-detector", tags=["phishing-detector"])
+api_router.include_router(log_analyzer.router, prefix="/log-analyzer", tags=["log-analyzer"])
+api_router.include_router(malware_analyzer.router, prefix="/malware-analyzer", tags=["malware-analyzer"])
+api_router.include_router(security_center.router, prefix="/security-center", tags=["security-center"])

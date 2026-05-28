@@ -1,4 +1,6 @@
-export default function SecurityScoreMeter({ score }) {
+import { memo } from 'react';
+
+function SecurityScoreMeter({ score }) {
   const normalized = Math.max(0, Math.min(100, score));
   const color = normalized < 40 ? '#ff4d6d' : normalized < 70 ? '#ffb703' : '#00f5d4';
 
@@ -20,3 +22,5 @@ export default function SecurityScoreMeter({ score }) {
     </div>
   );
 }
+
+export default memo(SecurityScoreMeter);

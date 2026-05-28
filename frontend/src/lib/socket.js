@@ -15,6 +15,22 @@ export function createAlertsSocket(onMessage) {
   const ws = new WebSocket(socketBase);
   let opened = false;
   let cancelled = false;
+  let flushHandle = 0;
+  let pendingMessages = [];
+
+  const flushMessages = () => {
+    flushHandle = 0;
+    if (cancelled || pendingMessages.length === 0) {
+      pendingMessages = [];
+      return;
+    }
+
+    const batch = pendingMessages;
+    pendingMessages = [];
+    for (const message of batch) {
+      onMessage(message);
+    }
+  };
 
   ws.onopen = () => {
     opened = true;
@@ -33,14 +49,23 @@ export function createAlertsSocket(onMessage) {
 
   ws.onmessage = (event) => {
     try {
-      onMessage(JSON.parse(event.data));
+      pendingMessages.push(JSON.parse(event.data));
     } catch {
-      onMessage({ channel: 'raw', payload: event.data });
+      pendingMessages.push({ channel: 'raw', payload: event.data });
+    }
+
+    if (!flushHandle) {
+      flushHandle = window.requestAnimationFrame(flushMessages);
     }
   };
 
   ws.safeClose = () => {
     cancelled = true;
+    if (flushHandle) {
+      window.cancelAnimationFrame(flushHandle);
+      flushHandle = 0;
+    }
+    pendingMessages = [];
     if (opened && ws.readyState <= WebSocket.OPEN) {
       ws.close();
     }

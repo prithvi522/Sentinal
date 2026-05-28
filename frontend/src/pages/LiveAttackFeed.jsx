@@ -6,10 +6,32 @@ import { createAlertsSocket } from '../lib/socket';
 export default function LiveAttackFeed() {
   const [alerts, setAlerts] = useState([]);
 
+  function normalizeAlert(payload) {
+    if (payload?.attack) {
+      return {
+        event_type: payload.attack,
+        description: `${payload.status} at ${payload.target}`,
+        source_ip: payload.source_ip || 'simulated',
+        severity: payload.severity,
+      };
+    }
+
+    if (payload?.headline) {
+      return {
+        event_type: payload.headline,
+        description: `${payload.country} has ${payload.attack_count} simulated alerts`,
+        source_ip: payload.country,
+        severity: payload.severity,
+      };
+    }
+
+    return payload;
+  }
+
   useEffect(() => {
     const ws = createAlertsSocket((evt) => {
-      if (evt.payload) {
-        setAlerts((prev) => [evt.payload, ...prev].slice(0, 200));
+      if ((evt?.channel === 'attack_simulation' || evt?.channel === 'threat_feed_update') && evt.payload) {
+        setAlerts((prev) => [normalizeAlert(evt.payload), ...prev].slice(0, 200));
       }
     });
 

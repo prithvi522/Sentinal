@@ -46,3 +46,16 @@ class ThreatIntelRequest(BaseModel):
     indicator: str
     kind: str = "ip"
     user_agent: str | None = None
+
+
+class PhishingAnalysisRequest(BaseModel):
+    content: str
+
+
+class LogAnalysisRequest(BaseModel):
+    logs: str | list[str]
+
+
+class MalwareAnalysisRequest(BaseModel):
+    content: str
+    filename: str | None = None

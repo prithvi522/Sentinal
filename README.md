@@ -165,3 +165,30 @@ WebSocket endpoint:
 - Rate limiting can be tuned with `RATE_LIMIT_REQUESTS` and `RATE_LIMIT_WINDOW_SECONDS`.
 - Max upload size for scans: set `MAX_UPLOAD_SIZE_BYTES` in `backend/.env`. Set to `0` to disable the limit (be careful — disabling size limits may use large amounts of memory and CPU when scanning big files).
 - Optional AI orchestration packages can be added later if you want LangChain-backed flows.
+
+## Offline AI Mode
+
+SentinelAI OS now supports optional local-only AI summaries through Ollama. If you have Ollama installed locally, run:
+
+```bash
+ollama run llama3
+```
+
+Then set the backend environment variables:
+
+```bash
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=llama3
+```
+
+If Ollama is unavailable, the phishing, log, and malware analyzers automatically fall back to rule-based summaries.
+
+## New Demo Modules
+
+- `GET /api/v1/simulate-attack` - synthetic attack simulator with websocket broadcast.
+- `POST /api/v1/phishing-detector/analyze` - local phishing detector.
+- `POST /api/v1/log-analyzer/analyze` - log analyzer for brute force and repeated failures.
+- `POST /api/v1/malware-analyzer/analyze` - static malware behavior analyzer.
+- `Threat Heatmap`, `AI Phishing Detector`, `AI Log Analyzer`, and `Malware Behavior Analyzer` are available in the frontend navigation.
+
+The dashboard also now includes additional security-health widgets for firewall status, AI threat level, system integrity, active threats, critical alerts, and vulnerabilities detected.
