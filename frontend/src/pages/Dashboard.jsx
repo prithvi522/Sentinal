@@ -269,7 +269,7 @@ export default function Dashboard() {
               <div className="space-y-2 text-sm text-white/80">
                 {metrics?.ai_recommendations?.map((item, index) => (
                   <div key={index} className="rounded-2xl border border-white/10 bg-black/25 p-3">
-                    {item}
+                    {typeof item === 'object' && item !== null ? (item.text ?? JSON.stringify(item)) : item}
                   </div>
                 ))}
                 {!metrics?.ai_recommendations?.length ? <p>No recommendations available.</p> : null}

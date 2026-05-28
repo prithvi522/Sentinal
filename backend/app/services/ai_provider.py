@@ -187,5 +187,87 @@ class AIProvider:
         fallback.setdefault("provider", "fallback")
         return fallback
 
+    async def complete_text(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        fallback: str,
+        provider: str | None = None,
+    ) -> dict[str, Any]:
+        self._ensure_initialized()
+
+        requested_provider = (provider or "auto").lower()
+
+        if requested_provider in {"auto", "gemini"}:
+            if self.langchain_gemini:
+                try:
+                    result = await self._complete_text_with_langchain(self.langchain_gemini, system_prompt, user_prompt)
+                    if result:
+                        return {"answer": result, "provider": "gemini"}
+                except Exception:
+                    pass
+
+            if self.gemini_model:
+                try:
+                    prompt = f"{system_prompt}\n\n{user_prompt}"
+                    response = await asyncio.wait_for(self.gemini_model.generate_content_async(prompt), timeout=8.0)
+                    text = (getattr(response, "text", "") or "").strip()
+                    if text:
+                        return {"answer": text, "provider": "gemini"}
+                except TimeoutError:
+                    pass
+                except Exception:
+                    pass
+
+            if requested_provider == "gemini":
+                return {"answer": fallback, "provider": "fallback"}
+
+        if requested_provider in {"auto", "openai"}:
+            if self.langchain_openai:
+                try:
+                    result = await self._complete_text_with_langchain(self.langchain_openai, system_prompt, user_prompt)
+                    if result:
+                        return {"answer": result, "provider": "openai"}
+                except Exception:
+                    pass
+
+            if self.openai_client:
+                try:
+                    response = await asyncio.wait_for(
+                        self.openai_client.chat.completions.create(
+                            model=settings.openai_model,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt},
+                            ],
+                            temperature=0.2,
+                        ),
+                        timeout=8.0,
+                    )
+                    content = (response.choices[0].message.content or "").strip()
+                    if content:
+                        return {"answer": content, "provider": "openai"}
+                except TimeoutError:
+                    pass
+                except Exception:
+                    pass
+
+        return {"answer": fallback, "provider": "fallback"}
+
+    async def _complete_text_with_langchain(self, model: Any, system_prompt: str, user_prompt: str) -> str | None:
+        try:
+            from langchain_core.messages import HumanMessage, SystemMessage
+
+            response = await asyncio.wait_for(
+                model.ainvoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]),
+                timeout=8.0,
+            )
+            content = getattr(response, "content", "") or ""
+            return content.strip() or None
+        except TimeoutError:
+            return None
+        except Exception:
+            return None
+
 
 ai_provider = AIProvider()

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Shield, Radar, FlaskConical, Siren, Bot, LogOut, Mic, CircleCheckBig, TriangleAlert, CircleSlash2, RefreshCw, ArrowUpRight, Database } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import { useState, useEffect } from 'react';
 import { createAlertsSocket } from '../lib/socket';
 import { getEnterpriseDashboard } from '../lib/dashboard';

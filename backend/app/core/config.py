@@ -1,5 +1,26 @@
+import os
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _load_dotenv_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+
+        if value and len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+
+        if not os.environ.get(key):
+            os.environ[key] = value
 
 
 class Settings(BaseSettings):
@@ -33,6 +54,7 @@ class Settings(BaseSettings):
     # Resolve the backend/.env file relative to this config file so env vars are loaded
     # reliably even when the process CWD is elsewhere.
     _env_path = Path(__file__).resolve().parents[2] / ".env"
+    _load_dotenv_file(_env_path)
     model_config = SettingsConfigDict(
         env_file=str(_env_path), env_file_encoding="utf-8", extra="ignore"
     )

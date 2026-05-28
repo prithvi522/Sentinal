@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, copilot, dashboard, demo, incidents, intelligence, prompts, reports, security, threats, websocket
+from app.api.v1.endpoints import auth, copilot, dashboard, demo, incidents, intelligence, prompts, reports, security, threats, websocket, terminal
 
 
 api_router = APIRouter()
@@ -15,3 +15,4 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboar
 api_router.include_router(demo.router, prefix="/demo", tags=["demo"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(websocket.router, prefix="/ws", tags=["websocket"])
+api_router.include_router(terminal.router, prefix="/terminal", tags=["terminal"])

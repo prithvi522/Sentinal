@@ -15,7 +15,7 @@ export default function Copilot() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [provider, setProvider] = useState('openai');
+  const [provider, setProvider] = useState('auto');
   const endRef = useRef(null);
 
   async function ask() {

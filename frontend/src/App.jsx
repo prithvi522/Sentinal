@@ -14,6 +14,8 @@ const IncidentResponse = lazy(() => import('./pages/IncidentResponse'));
 const Copilot = lazy(() => import('./pages/Copilot'));
 const VulnerabilityIntelligence = lazy(() => import('./pages/VulnerabilityIntelligence'));
 const ThreatIntel = lazy(() => import('./pages/ThreatIntel'));
+const LiveAttackFeed = lazy(() => import('./pages/LiveAttackFeed'));
+const TerminalConsole = lazy(() => import('./pages/TerminalConsole'));
 
 function RouteFallback() {
   return (
@@ -32,7 +34,9 @@ export default function App() {
       { path: '/analyst', element: <ProtectedRoute><Analyst /></ProtectedRoute> },
       { path: '/prompt-firewall', element: <ProtectedRoute><PromptFirewall /></ProtectedRoute> },
       { path: '/vulnerability-intelligence', element: <ProtectedRoute><VulnerabilityIntelligence /></ProtectedRoute> },
+      { path: '/live-attack-feed', element: <ProtectedRoute><LiveAttackFeed /></ProtectedRoute> },
       { path: '/threat-intel', element: <ProtectedRoute><ThreatIntel /></ProtectedRoute> },
+      { path: '/terminal-console', element: <ProtectedRoute><TerminalConsole /></ProtectedRoute> },
       { path: '/threat-hunter', element: <ProtectedRoute><ThreatHunter /></ProtectedRoute> },
       { path: '/incident-response', element: <ProtectedRoute><IncidentResponse /></ProtectedRoute> },
       { path: '/copilot', element: <ProtectedRoute><Copilot /></ProtectedRoute> },
