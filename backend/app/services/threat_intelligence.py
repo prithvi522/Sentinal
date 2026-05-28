@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import re
 from dataclasses import dataclass
@@ -103,70 +104,77 @@ class ThreatIntelligence:
         sources = result.sources
         threatfox_endpoint = ThreatIntelligence._threatfox_endpoint()
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            if settings.virustotal_api_key:
-                try:
-                    response = await client.get(
-                        f"https://www.virustotal.com/api/v3/ip_addresses/{ip}",
-                        headers={"x-apikey": settings.virustotal_api_key},
-                    )
-                    if response.status_code == 200:
-                        payload = response.json().get("data", {}).get("attributes", {})
-                        sources["virustotal"] = payload
-                        result.threat_reputation_score = min(100, max(result.threat_reputation_score, int(payload.get("last_analysis_stats", {}).get("malicious", 0) * 20)))
-                        result.malicious = result.malicious or result.threat_reputation_score >= 50
-                except Exception as exc:
-                    logger.exception("VirusTotal lookup failed for %s: %s", ip, exc)
+        async def enrich_sources() -> None:
+            timeout = httpx.Timeout(3.0, connect=2.0, read=3.0, write=3.0, pool=3.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                if settings.virustotal_api_key:
+                    try:
+                        response = await client.get(
+                            f"https://www.virustotal.com/api/v3/ip_addresses/{ip}",
+                            headers={"x-apikey": settings.virustotal_api_key},
+                        )
+                        if response.status_code == 200:
+                            payload = response.json().get("data", {}).get("attributes", {})
+                            sources["virustotal"] = payload
+                            result.threat_reputation_score = min(100, max(result.threat_reputation_score, int(payload.get("last_analysis_stats", {}).get("malicious", 0) * 20)))
+                            result.malicious = result.malicious or result.threat_reputation_score >= 50
+                    except Exception as exc:
+                        logger.exception("VirusTotal lookup failed for %s: %s", ip, exc)
 
-            if threatfox_endpoint:
-                try:
-                    response = await client.post(
-                        threatfox_endpoint,
-                        json={"query": "search_ioc", "search_term": ip},
-                        headers={"Content-Type": "application/json"},
-                    )
-                    if response.status_code == 200:
-                        payload = response.json()
-                        sources["threatfox"] = payload
-                        if isinstance(payload, dict):
-                            matches = payload.get("data", []) if isinstance(payload.get("data"), list) else payload.get("data") or []
-                            if matches:
-                                result.threat_reputation_score = min(100, max(result.threat_reputation_score, 60))
-                                result.malicious = True
-                                result.indicators.append("threatfox_ioc_match")
-                except Exception as exc:
-                    logger.exception("ThreatFox lookup failed for %s: %s", indicator if kind != 'ip' else ip, exc)
+                if threatfox_endpoint:
+                    try:
+                        response = await client.post(
+                            threatfox_endpoint,
+                            json={"query": "search_ioc", "search_term": ip},
+                            headers={"Content-Type": "application/json"},
+                        )
+                        if response.status_code == 200:
+                            payload = response.json()
+                            sources["threatfox"] = payload
+                            if isinstance(payload, dict):
+                                matches = payload.get("data", []) if isinstance(payload.get("data"), list) else payload.get("data") or []
+                                if matches:
+                                    result.threat_reputation_score = min(100, max(result.threat_reputation_score, 60))
+                                    result.malicious = True
+                                    result.indicators.append("threatfox_ioc_match")
+                    except Exception as exc:
+                        logger.exception("ThreatFox lookup failed for %s: %s", ip, exc)
 
-            if settings.abuseipdb_api_key:
-                try:
-                    response = await client.get(
-                        "https://api.abuseipdb.com/api/v2/check",
-                        params={"ipAddress": ip, "maxAgeInDays": 90, "verbose": "true"},
-                        headers={"Key": settings.abuseipdb_api_key, "Accept": "application/json"},
-                    )
-                    if response.status_code == 200:
-                        payload = response.json().get("data", {})
-                        sources["abuseipdb"] = payload
-                        abuse_score = int(float(payload.get("abuseConfidenceScore", 0)))
-                        result.threat_reputation_score = max(result.threat_reputation_score, abuse_score)
-                        result.malicious = result.malicious or abuse_score >= 50
-                except Exception as exc:
-                    logger.exception("AbuseIPDB lookup failed for %s: %s", ip, exc)
+                if settings.abuseipdb_api_key:
+                    try:
+                        response = await client.get(
+                            "https://api.abuseipdb.com/api/v2/check",
+                            params={"ipAddress": ip, "maxAgeInDays": 90, "verbose": "true"},
+                            headers={"Key": settings.abuseipdb_api_key, "Accept": "application/json"},
+                        )
+                        if response.status_code == 200:
+                            payload = response.json().get("data", {})
+                            sources["abuseipdb"] = payload
+                            abuse_score = int(float(payload.get("abuseConfidenceScore", 0)))
+                            result.threat_reputation_score = max(result.threat_reputation_score, abuse_score)
+                            result.malicious = result.malicious or abuse_score >= 50
+                    except Exception as exc:
+                        logger.exception("AbuseIPDB lookup failed for %s: %s", ip, exc)
 
-            if settings.shodan_api_key:
-                try:
-                    response = await client.get(
-                        f"https://api.shodan.io/shodan/host/{ip}",
-                        params={"key": settings.shodan_api_key},
-                    )
-                    if response.status_code == 200:
-                        payload = response.json()
-                        sources["shodan"] = payload
-                        result.asn = payload.get("asn", result.asn)
-                        result.country = payload.get("country_name", result.country)
-                        result.threat_reputation_score = min(100, result.threat_reputation_score + 10)
-                except Exception as exc:
-                    logger.exception("Shodan lookup failed for %s: %s", ip, exc)
+                if settings.shodan_api_key:
+                    try:
+                        response = await client.get(
+                            f"https://api.shodan.io/shodan/host/{ip}",
+                            params={"key": settings.shodan_api_key},
+                        )
+                        if response.status_code == 200:
+                            payload = response.json()
+                            sources["shodan"] = payload
+                            result.asn = payload.get("asn", result.asn)
+                            result.country = payload.get("country_name", result.country)
+                            result.threat_reputation_score = min(100, result.threat_reputation_score + 10)
+                    except Exception as exc:
+                        logger.exception("Shodan lookup failed for %s: %s", ip, exc)
+
+        try:
+            await asyncio.wait_for(enrich_sources(), timeout=8.0)
+        except TimeoutError:
+            logger.warning("Threat intel enrichment timed out for %s; returning fallback profile", ip)
 
         return result.as_dict()
 
@@ -212,4 +220,5 @@ class ThreatIntelligence:
             "is_proxy": False,
             "is_vpn": False,
             "sources": sources,
+            "provider": "fallback" if not sources else "enriched",
         }

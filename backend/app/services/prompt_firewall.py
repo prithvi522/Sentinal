@@ -71,4 +71,5 @@ class PromptFirewall:
             "blocked": ai_result.get("blocked", blocked),
             "explanation": ai_result.get("explanation", fallback["explanation"]),
             "decision_reason": ai_result.get("decision_reason", fallback["decision_reason"]),
+            "provider": ai_result.get("provider", "fallback"),
         }

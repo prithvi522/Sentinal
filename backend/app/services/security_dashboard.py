@@ -122,7 +122,7 @@ class SecurityDashboard:
         total_scans = db.query(func.count(VulnerabilityScan.id)).scalar() or 0
         avg_risk = db.query(func.avg(VulnerabilityScan.risk_score)).scalar() or 0
         total_threats = db.query(func.count(ThreatEvent.id)).scalar() or 0
-        high_scans = db.query(func.count(VulnerabilityScan.id)).filter(VulnerabilityScan.severity.in_(["high", "critical"])) .scalar() or 0
+        high_scans = db.query(func.count(VulnerabilityScan.id)).filter(VulnerabilityScan.severity.in_(["high", "critical"])).scalar() or 0
 
         recent_threats = (
             db.query(ThreatEvent)
@@ -142,6 +142,9 @@ class SecurityDashboard:
             .limit(20)
             .all()
         )
+
+        # Release the DB connection before any awaited enrichment work runs.
+        db.close()
 
         unique_recent_ips = []
         seen_ips = set()

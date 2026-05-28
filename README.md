@@ -59,6 +59,13 @@ docker-compose.yml
 - Secrets and local runtime artifacts are excluded through `.gitignore`.
 - Docker build contexts are optimized with `backend/.dockerignore` and `frontend/.dockerignore`.
 
+## Environment Layout
+
+- Backend runtime config lives in [backend/.env.example](backend/.env.example) and is loaded from `backend/.env` by [backend/app/core/config.py](backend/app/core/config.py).
+- Frontend runtime config lives in [frontend/.env.example](frontend/.env.example) and is loaded from `frontend/.env` by Vite.
+- The root [.env.example](.env.example) is a convenience map that shows which variables belong to each side.
+- Keep real secrets out of Git; commit only the example files.
+
 ### First Push Checklist
 
 ```bash
@@ -92,6 +99,8 @@ npm install
 npm run dev
 ```
 
+The frontend dev launcher also starts the backend automatically on port 8000, so this is the quickest way to run the app locally during development.
+
 ### 3. Seed demo data
 
 ```bash
@@ -101,13 +110,13 @@ python -m seed.seed_data
 
 ### 4. One-command local run on Windows
 
-From `backend/`, run:
+From `frontend/`, run:
 
 ```powershell
-.\scripts\run_dev.ps1
+npm run dev
 ```
 
-The helper defaults to local SQLite for development so you do not need PostgreSQL or Docker to get started.
+The frontend launcher starts the backend, defaults to local SQLite for development, and uses the Vite proxy so you do not need PostgreSQL or Docker to get started.
 
 ## Docker Run
 

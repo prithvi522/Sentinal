@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     simulation_interval_seconds: int = 8
     # Maximum upload size for code scans (bytes). Set to null/None to disable limit.
-    max_upload_size_bytes: int | None = 5 * 1024 * 1024  # 5 MB
+    max_upload_size_bytes: int | None = 50 * 1024 * 1024  # 50 MB
 
     # Resolve the backend/.env file relative to this config file so env vars are loaded
     # reliably even when the process CWD is elsewhere.

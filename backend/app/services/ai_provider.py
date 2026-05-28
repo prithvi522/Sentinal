@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -12,6 +13,22 @@ class AIProvider:
         self.langchain_openai = None
         self.langchain_gemini = None
         self._initialized = False
+
+    @staticmethod
+    def _gemini_model_candidates() -> list[str]:
+        candidates = [
+            settings.gemini_model,
+            "gemini-flash-latest",
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+        ]
+        seen = set()
+        ordered: list[str] = []
+        for candidate in candidates:
+            if candidate and candidate not in seen:
+                seen.add(candidate)
+                ordered.append(candidate)
+        return ordered
 
     def _ensure_initialized(self) -> None:
         if self._initialized:
@@ -32,7 +49,12 @@ class AIProvider:
                 import google.generativeai as genai
 
                 genai.configure(api_key=settings.gemini_api_key)
-                self.gemini_model = genai.GenerativeModel(settings.gemini_model)
+                for model_name in self._gemini_model_candidates():
+                    try:
+                        self.gemini_model = genai.GenerativeModel(model_name)
+                        break
+                    except Exception:
+                        self.gemini_model = None
             except Exception:
                 self.gemini_model = None
 
@@ -80,11 +102,16 @@ class AIProvider:
         try:
             from langchain_core.messages import HumanMessage, SystemMessage
 
-            response = await model.ainvoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
+            response = await asyncio.wait_for(
+                model.ainvoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]),
+                timeout=8.0,
+            )
             content = getattr(response, "content", "") or ""
             parsed = self._extract_json(content)
             if parsed is not None:
                 return parsed
+        except TimeoutError:
+            return None
         except Exception:
             return None
         return None
@@ -101,34 +128,6 @@ class AIProvider:
 
         requested_provider = (provider or "auto").lower()
 
-        if requested_provider in {"auto", "openai"}:
-            result = None
-            if self.langchain_openai:
-                result = await self._complete_with_langchain(self.langchain_openai, system_prompt, user_prompt)
-            if result is None and self.openai_client:
-                try:
-                    response = await self.openai_client.chat.completions.create(
-                        model=settings.openai_model,
-                        response_format={"type": "json_object"},
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt},
-                        ],
-                        temperature=0.2,
-                    )
-                    content = response.choices[0].message.content or "{}"
-                    result = self._extract_json(content)
-                except Exception:
-                    result = None
-
-            if result is not None:
-                result.setdefault("provider", "openai")
-                return result
-
-            if requested_provider == "openai":
-                fallback.setdefault("provider", "fallback")
-                return fallback
-
         if requested_provider in {"auto", "gemini"}:
             result = None
             if self.langchain_gemini:
@@ -140,14 +139,49 @@ class AIProvider:
                         "Respond ONLY with a valid JSON object.\n"
                         f"User request:\n{user_prompt}"
                     )
-                    response = await self.gemini_model.generate_content_async(prompt)
+                    response = await asyncio.wait_for(self.gemini_model.generate_content_async(prompt), timeout=8.0)
                     text = response.text.strip()
                     result = self._extract_json(text)
+                except TimeoutError:
+                    result = None
                 except Exception:
                     result = None
 
             if result is not None:
                 result.setdefault("provider", "gemini")
+                return result
+
+            if requested_provider == "gemini":
+                fallback.setdefault("provider", "fallback")
+                return fallback
+
+        if requested_provider in {"auto", "openai"}:
+            result = None
+            if self.langchain_openai:
+                result = await self._complete_with_langchain(self.langchain_openai, system_prompt, user_prompt)
+            if result is None and self.openai_client:
+                try:
+                    response = await asyncio.wait_for(
+                        self.openai_client.chat.completions.create(
+                            model=settings.openai_model,
+                            response_format={"type": "json_object"},
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt},
+                            ],
+                            temperature=0.2,
+                        ),
+                        timeout=8.0,
+                    )
+                    content = response.choices[0].message.content or "{}"
+                    result = self._extract_json(content)
+                except TimeoutError:
+                    result = None
+                except Exception:
+                    result = None
+
+            if result is not None:
+                result.setdefault("provider", "openai")
                 return result
 
         fallback.setdefault("provider", "fallback")

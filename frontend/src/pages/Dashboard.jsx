@@ -7,8 +7,8 @@ import KpiCard from '../components/KpiCard';
 import AlertTicker from '../components/AlertTicker';
 import SeverityChart from '../components/SeverityChart';
 import SecurityScoreMeter from '../components/SecurityScoreMeter';
-import { api } from '../lib/api';
 import { createAlertsSocket } from '../lib/socket';
+import { getEnterpriseDashboard } from '../lib/dashboard';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -17,18 +17,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  async function loadMetrics() {
-    try {
-      const response = await api.get('/dashboard/enterprise');
-      setMetrics(response.data);
-      setLastUpdated(new Date());
-      return true;
-    } catch {
-      const response = await api.get('/dashboard/metrics');
-      setMetrics(response.data);
-      setLastUpdated(new Date());
-      return true;
-    }
+  async function loadMetrics(options = {}) {
+    const data = await getEnterpriseDashboard(options);
+    setMetrics(data);
+    setLastUpdated(new Date());
+    return true;
   }
 
   useEffect(() => {
@@ -88,7 +81,7 @@ export default function Dashboard() {
   async function manualRefresh() {
     setRefreshing(true);
     try {
-      await loadMetrics();
+      await loadMetrics({ force: true });
     } finally {
       setRefreshing(false);
     }

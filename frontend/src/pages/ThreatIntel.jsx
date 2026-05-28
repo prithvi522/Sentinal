@@ -52,6 +52,9 @@ export default function ThreatIntel() {
                 <p>VPN: <span className="text-warning">{result.is_vpn ? 'yes' : 'no'}</span></p>
                 <p>Sources: <span className="text-lime">{Object.keys(result.sources || {}).length}</span></p>
               </div>
+              <p className="text-xs uppercase tracking-[0.25em] text-white/50">
+                Analysis source: <span className={result.provider === 'fallback' ? 'text-warning' : 'text-lime'}>{result.provider || 'fallback'}</span>
+              </p>
               <div className="terminal-box">
                 <p className="text-lime mb-2">Indicators</p>
                 {result.indicators?.map((item, index) => <p key={index}>{item}</p>)}

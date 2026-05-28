@@ -2,9 +2,9 @@ import { motion } from 'framer-motion';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Shield, Radar, FlaskConical, Siren, Bot, LogOut, Mic, CircleCheckBig, TriangleAlert, CircleSlash2, RefreshCw, ArrowUpRight, Database } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../lib/api';
 import { useState, useEffect } from 'react';
 import { createAlertsSocket } from '../lib/socket';
+import { getEnterpriseDashboard } from '../lib/dashboard';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Shield },
@@ -63,7 +63,7 @@ export default function AppShell({ children }) {
     const loadModuleStatuses = async () => {
       setStatusLoading(true);
       try {
-        const { data } = await api.get('/dashboard/enterprise');
+        const data = await getEnterpriseDashboard();
         if (!alive) return;
         setModuleStatuses(data?.module_statuses || []);
         setStatusError('');

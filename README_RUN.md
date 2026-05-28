@@ -9,18 +9,17 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-2) Install frontend deps and run dev server:
+2) Install frontend deps and run the full dev stack:
 
 ```powershell
 cd frontend
 npm install
-# from repo root run both frontend and backend with helper script
-cd ..
-.\scripts\run_dev.ps1
+npm run dev
 ```
 
 Notes:
 - The helper script defaults to a local SQLite DB so you don't need Postgres/Docker for development.
+- `frontend/npm run dev` starts the backend on port 8000 and the Vite frontend on port 5173.
 - The frontend talks to the backend through the Vite dev proxy at `/api/v1`, so the browser does not need to hit `http://localhost:8000` directly.
 - Put real API keys in `backend/.env` or environment variables before running production features.
 - To run only the backend:

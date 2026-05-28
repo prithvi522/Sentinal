@@ -43,7 +43,7 @@ class SecurityCopilot:
                     fallback=fallback,
                     provider=provider,
                 ),
-                timeout=15,
+                timeout=60,
             )
         except TimeoutError:
             ai_result = {**fallback, "provider": "fallback", "error": "timeout"}

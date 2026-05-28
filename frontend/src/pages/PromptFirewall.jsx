@@ -52,6 +52,9 @@ export default function PromptFirewall() {
               <p>Blocked: <span className="uppercase text-warning">{result.blocked ? 'yes' : 'no'}</span></p>
               <p>Decision: <span className="text-cyan">{result.decision_reason}</span></p>
             </div>
+            <p className="text-xs uppercase tracking-[0.25em] text-white/50">
+              Analysis source: <span className={result.provider === 'fallback' ? 'text-warning' : 'text-lime'}>{result.provider || 'fallback'}</span>
+            </p>
             <p>{result.explanation}</p>
             <div className="terminal-box">
               {result.risks.map((r, i) => <p key={i}>{r.category} :: {r.pattern}</p>)}

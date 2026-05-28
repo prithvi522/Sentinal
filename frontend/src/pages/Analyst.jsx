@@ -53,7 +53,9 @@ async function onSubmit(e) {
     
     // Hit your newly working FastAPI CORS endpoint
     // Let the browser set the Content-Type including the multipart boundary header.
-    const { data } = await api.post('/security/scan-code', formData);
+    const { data } = await api.post('/security/scan-code', formData, {
+      timeout: 120000,
+    });
     
     // Success: stop timers cleanly first, then map the data
     stopTimers();

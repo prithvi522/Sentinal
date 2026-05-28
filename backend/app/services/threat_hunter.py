@@ -1,3 +1,4 @@
+import asyncio
 from collections import Counter
 
 from app.services.threat_intelligence import ThreatIntelligence
@@ -7,6 +8,20 @@ from app.services.ai_provider import ai_provider
 class ThreatHunter:
     @staticmethod
     async def analyze_logs(logs: list[dict]) -> dict:
+        if not logs:
+            return {
+                "threat_score": 0,
+                "alerts": [],
+                "enriched_alerts": [],
+                "summary": "No logs supplied for threat hunting.",
+                "predicted_next_severity": "low",
+                "anomaly_summary": {
+                    "top_failed_ips": [],
+                    "unusual_user_agents": [],
+                    "suspicious_login_sources": [],
+                },
+            }
+
         failed_by_ip = Counter()
         user_agent_counter = Counter()
         ip_activity = Counter()
@@ -25,6 +40,7 @@ class ThreatHunter:
 
         alerts = []
         enriched_alerts = []
+        enrichment_targets: set[str] = set()
 
         for ip, failed_count in failed_by_ip.items():
             if failed_count >= 5:
@@ -35,9 +51,9 @@ class ThreatHunter:
                     "confidence": min(0.99, 0.5 + failed_count / 20),
                     "description": f"{failed_count} failed authentication attempts detected.",
                 }
-                alert["ip_intel"] = await ThreatIntelligence.enrich_ip(ip)
                 alerts.append(alert)
                 enriched_alerts.append(alert)
+                enrichment_targets.add(ip)
 
         for (ip, action), count in login_activity.items():
             if action in {"login", "auth", "signin"} and count >= 4:
@@ -48,9 +64,9 @@ class ThreatHunter:
                     "confidence": min(0.98, 0.45 + count / 15),
                     "description": f"Suspicious repeated login activity observed for action '{action}' ({count} events).",
                 }
-                alert["ip_intel"] = await ThreatIntelligence.enrich_ip(ip)
                 alerts.append(alert)
                 enriched_alerts.append(alert)
+                enrichment_targets.add(ip)
 
         for ip, activity_count in ip_activity.items():
             if activity_count >= 50:
@@ -61,9 +77,9 @@ class ThreatHunter:
                     "confidence": min(0.99, 0.6 + activity_count / 200),
                     "description": f"Traffic burst pattern detected with {activity_count} requests.",
                 }
-                alert["ip_intel"] = await ThreatIntelligence.enrich_ip(ip)
                 alerts.append(alert)
                 enriched_alerts.append(alert)
+                enrichment_targets.add(ip)
 
             if 20 <= activity_count < 50:
                 alert = {
@@ -72,10 +88,10 @@ class ThreatHunter:
                     "severity": "medium",
                     "confidence": min(0.96, 0.35 + activity_count / 100),
                     "description": f"Traffic burst pattern detected with {activity_count} requests; behavior deviates from baseline.",
-                    "ip_intel": await ThreatIntelligence.enrich_ip(ip),
                 }
                 alerts.append(alert)
                 enriched_alerts.append(alert)
+                enrichment_targets.add(ip)
 
         for ua, count in user_agent_counter.items():
             if "vpn" in ua.lower() or "proxy" in ua.lower():
@@ -100,6 +116,54 @@ class ThreatHunter:
                 }
                 alerts.append(alert)
                 enriched_alerts.append(alert)
+
+        ip_intel_cache: dict[str, dict] = {}
+
+        if enrichment_targets:
+            enrichment_budget = min(6.0, 0.8 + len(enrichment_targets) * 0.6)
+
+            async def enrich_target(ip: str) -> tuple[str, dict | None]:
+                try:
+                    intel = await asyncio.wait_for(ThreatIntelligence.enrich_ip(ip), timeout=4.0)
+                    return ip, intel
+                except TimeoutError:
+                    return ip, None
+                except Exception:
+                    return ip, None
+
+            try:
+                results = await asyncio.wait_for(
+                    asyncio.gather(*(enrich_target(ip) for ip in enrichment_targets)),
+                    timeout=enrichment_budget,
+                )
+                for ip, intel in results:
+                    if intel is not None:
+                        ip_intel_cache[ip] = intel
+            except TimeoutError:
+                pass
+
+        for alert in alerts:
+            ip = alert.get("source_ip")
+            if ip in ip_intel_cache:
+                alert["ip_intel"] = ip_intel_cache[ip]
+            elif alert.get("type") == "vpn_or_proxy_usage":
+                continue
+            else:
+                alert.setdefault(
+                    "ip_intel",
+                    {
+                        "ip": ip,
+                        "malicious": False,
+                        "threat_reputation_score": 10,
+                        "indicators": ["fallback_profile"],
+                        "asn": "AS-UNKNOWN",
+                        "country": "Unknown",
+                        "is_tor": False,
+                        "is_proxy": False,
+                        "is_vpn": False,
+                        "sources": {},
+                    },
+                )
 
         anomaly_summary = {
             "top_failed_ips": [
