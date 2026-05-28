@@ -1,0 +1,34 @@
+Project Presentation — Features
+
+Slide: Title
+- Project: Ops & Security Platform
+- Short tagline: Real-time threat detection and guided incident response
+
+Slide: Key Features
+- Real-time Dashboard: WebSocket-powered live updates, severity charts, KPIs
+- Analyst Tools: Threat hunting, incident response playbooks, simulation
+- AI Assistant: Copilot chat for analyst assistance and automated suggestions
+- Prompt Firewall: Filters & sanitizes prompts before AI execution
+- Automated Reports: Generate, export, and seedable report templates
+- Security Controls: Authentication, role-based access, code scanning utilities
+- Integrations: Pluggable AI provider, websocket manager, DB-backed models
+- Dev-Friendly: Dockerized backend/frontend, clear API v1 routes
+
+Slide: Architecture (short)
+- Backend: FastAPI (app/) with services, models, schemas
+- Frontend: Vite + React (frontend/) with real-time components
+- Persistence: DB sessions, generated_reports, seed data
+- Extras: Websocket manager, simulation and scanning services
+
+Slide: Demo Flow
+- Login as admin
+- Run a threat hunt -> view live incidents
+- Trigger incident response playbook -> generate report
+- Use Copilot to draft remediation steps
+
+Slide: Next Steps
+- Add screenshots and speak-notes for each slide
+- Optional: export to PowerPoint template and add branding
+
+Contact / Notes
+- File generated for import into PPT slides. Edit as needed.

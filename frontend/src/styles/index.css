@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-bg0 text-white font-body min-h-screen;
+  background-image: radial-gradient(circle at 10% 10%, rgba(0, 245, 212, 0.12), transparent 28%),
+    radial-gradient(circle at 90% 20%, rgba(255, 77, 109, 0.12), transparent 34%),
+    linear-gradient(180deg, #070b16 0%, #0d1732 100%);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 38px 38px;
+  opacity: 0.15;
+}
+
+.glass-card {
+  @apply backdrop-blur-xl bg-card border border-cyan/30 rounded-xl shadow-neon;
+}
+
+.terminal-box {
+  @apply bg-black/50 border border-lime/30 rounded-lg p-3 font-mono text-sm;
+}
