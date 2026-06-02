@@ -6,11 +6,23 @@
   color-scheme: dark;
 }
 
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
-  @apply bg-bg0 text-white font-body min-h-screen;
+  @apply bg-bg0 text-white font-body;
+  height: 100%;
+  overflow: hidden;
   background-image: radial-gradient(circle at 10% 10%, rgba(0, 245, 212, 0.12), transparent 28%),
     radial-gradient(circle at 90% 20%, rgba(255, 77, 109, 0.12), transparent 34%),
     linear-gradient(180deg, #070b16 0%, #0d1732 100%);
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
 body[data-security-mode='safe'] {

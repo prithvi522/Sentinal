@@ -98,6 +98,37 @@ class AIProvider:
                     return None
         return None
 
+    @staticmethod
+    def _safe_error_summary(prefix: str, error: Exception) -> str:
+        status_code = getattr(error, "status_code", None)
+        code = getattr(error, "code", None)
+        message = str(error).replace("\n", " ").strip()
+        if len(message) > 120:
+            message = f"{message[:117]}..."
+
+        parts = [prefix, error.__class__.__name__]
+        if status_code:
+            parts.append(f"status {status_code}")
+        if code:
+            parts.append(f"code {code}")
+        if message:
+            parts.append(message)
+        return ": ".join(parts)
+
+    @staticmethod
+    def _is_quota_or_rate_limit_error(error: Exception) -> bool:
+        status_code = getattr(error, "status_code", None)
+        code = str(getattr(error, "code", "") or "").lower()
+        message = str(error).lower()
+        return (
+            status_code == 429
+            or "quota" in code
+            or "rate" in code
+            or "quota" in message
+            or "rate limit" in message
+            or "resourceexhausted" in message
+        )
+
     async def _complete_with_langchain(self, model: Any, system_prompt: str, user_prompt: str) -> dict[str, Any] | None:
         try:
             from langchain_core.messages import HumanMessage, SystemMessage
@@ -197,6 +228,9 @@ class AIProvider:
         self._ensure_initialized()
 
         requested_provider = (provider or "auto").lower()
+        if requested_provider not in {"auto", "gemini", "openai"}:
+            requested_provider = "auto"
+        failures: list[str] = []
 
         if requested_provider in {"auto", "gemini"}:
             if self.langchain_gemini:
@@ -204,23 +238,41 @@ class AIProvider:
                     result = await self._complete_text_with_langchain(self.langchain_gemini, system_prompt, user_prompt)
                     if result:
                         return {"answer": result, "provider": "gemini"}
-                except Exception:
-                    pass
+                except Exception as exc:
+                    failures.append(self._safe_error_summary("Gemini LangChain request failed", exc))
+            elif settings.gemini_api_key:
+                failures.append("Gemini LangChain client unavailable")
 
             if self.gemini_model:
                 try:
-                    prompt = f"{system_prompt}\n\n{user_prompt}"
-                    response = await asyncio.wait_for(self.gemini_model.generate_content_async(prompt), timeout=8.0)
-                    text = (getattr(response, "text", "") or "").strip()
-                    if text:
-                        return {"answer": text, "provider": "gemini"}
-                except TimeoutError:
-                    pass
+                    import google.generativeai as genai
                 except Exception:
-                    pass
+                    genai = None
+
+                for model_name in self._gemini_model_candidates():
+                    model = self.gemini_model
+                    if genai is not None and model_name != settings.gemini_model:
+                        model = genai.GenerativeModel(model_name)
+
+                    try:
+                        prompt = f"{system_prompt}\n\n{user_prompt}"
+                        response = await asyncio.wait_for(model.generate_content_async(prompt), timeout=8.0)
+                        text = (getattr(response, "text", "") or "").strip()
+                        if text:
+                            return {"answer": text, "provider": "gemini", "model": model_name}
+                    except TimeoutError:
+                        failures.append(f"Gemini request timed out for {model_name}")
+                    except Exception as exc:
+                        failures.append(self._safe_error_summary(f"Gemini request failed for {model_name}", exc))
+                        if self._is_quota_or_rate_limit_error(exc):
+                            break
+            elif settings.gemini_api_key:
+                failures.append("Gemini client unavailable")
+            else:
+                failures.append("GEMINI_API_KEY is not configured")
 
             if requested_provider == "gemini":
-                return {"answer": fallback, "provider": "fallback"}
+                return {"answer": fallback, "provider": "fallback", "reason": "; ".join(failures)}
 
         if requested_provider in {"auto", "openai"}:
             if self.langchain_openai:
@@ -228,8 +280,10 @@ class AIProvider:
                     result = await self._complete_text_with_langchain(self.langchain_openai, system_prompt, user_prompt)
                     if result:
                         return {"answer": result, "provider": "openai"}
-                except Exception:
-                    pass
+                except Exception as exc:
+                    failures.append(self._safe_error_summary("OpenAI LangChain request failed", exc))
+            elif settings.chatgpt_api_key or settings.openai_api_key:
+                failures.append("OpenAI LangChain client unavailable")
 
             if self.openai_client:
                 try:
@@ -248,11 +302,16 @@ class AIProvider:
                     if content:
                         return {"answer": content, "provider": "openai"}
                 except TimeoutError:
-                    pass
-                except Exception:
-                    pass
+                    failures.append("OpenAI request timed out")
+                except Exception as exc:
+                    failures.append(self._safe_error_summary("OpenAI request failed", exc))
+            elif settings.chatgpt_api_key or settings.openai_api_key:
+                failures.append("OpenAI client unavailable")
+            else:
+                failures.append("CHATGPT_API_KEY or OPENAI_API_KEY is not configured")
 
-        return {"answer": fallback, "provider": "fallback"}
+        reason = "; ".join(list(dict.fromkeys(failures))[:3]) or "No AI provider returned a response"
+        return {"answer": fallback, "provider": "fallback", "reason": reason}
 
     async def _complete_text_with_langchain(self, model: Any, system_prompt: str, user_prompt: str) -> str | None:
         try:

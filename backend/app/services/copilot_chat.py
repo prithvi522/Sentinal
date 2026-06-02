@@ -18,7 +18,12 @@ class SecurityCopilot:
             if content:
                 history_lines.append(f"{role.title()}: {content}")
 
-        fallback = "SentinelAI Copilot analyzed your request. Prioritize containment, evidence collection, root cause isolation, and immediate hardening of exposed attack surfaces."
+        fallback = (
+            "SentinelAI Copilot is running in local fallback mode. "
+            "For the request above, prioritize containment, evidence collection, root cause isolation, "
+            "and immediate hardening of exposed attack surfaces. Live provider responses are unavailable "
+            "right now; check the provider status shown above."
+        )
 
         ai_result = await ai_provider.complete_text(
             system_prompt=(
@@ -41,4 +46,5 @@ class SecurityCopilot:
             "answer": ai_result.get("answer", fallback),
             "provider": ai_result.get("provider", "fallback"),
             "status": status,
+            "reason": ai_result.get("reason"),
         }

@@ -16,7 +16,13 @@ export default function Copilot() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [provider, setProvider] = useState('auto');
-  const endRef = useRef(null);
+  const chatScrollRef = useRef(null);
+
+  function scrollChatToBottom() {
+    const chatPanel = chatScrollRef.current;
+    if (!chatPanel) return;
+    chatPanel.scrollTop = chatPanel.scrollHeight;
+  }
 
   async function ask() {
     const userMessage = message.trim();
@@ -28,6 +34,7 @@ export default function Copilot() {
       const nextMessages = [...messages, { role: 'user', content: userMessage }];
       setMessages(nextMessages);
       setMessage('');
+      requestAnimationFrame(scrollChatToBottom);
       const { data } = await api.post(
         '/copilot/chat',
         {
@@ -39,7 +46,7 @@ export default function Copilot() {
         { timeout: 60000 }
       );
       setMessages((current) => [...current, { role: 'assistant', content: data.answer, provider: data.provider, status: data.status, reason: data.reason }]);
-      requestAnimationFrame(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }));
+      requestAnimationFrame(scrollChatToBottom);
     } catch (requestError) {
       const isTimeout = requestError?.code === 'ECONNABORTED' || /timeout/i.test(requestError?.message || '');
       setError(
@@ -54,9 +61,9 @@ export default function Copilot() {
 
   return (
     <AppShell>
-      <div className="space-y-4">
+      <div className="flex min-h-[calc(100vh-19rem)] flex-col space-y-4">
         <h1 className="font-display text-3xl text-cyan">AI Security Copilot Chat</h1>
-        <div className="glass-card p-4 space-y-4">
+        <div className="glass-card flex min-h-0 flex-1 flex-col gap-4 p-4">
           <div className="flex flex-wrap items-center gap-2 text-sm text-white/70">
             <span className="uppercase tracking-[0.2em] text-white/50">Provider</span>
             <button onClick={() => setProvider('auto')} className={`px-3 py-1 rounded border ${provider === 'auto' ? 'border-cyan text-cyan bg-cyan/10' : 'border-white/15 hover:border-cyan/40'}`}>
@@ -77,7 +84,7 @@ export default function Copilot() {
             ))}
           </div>
           {error ? <div className="rounded border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div> : null}
-          <div className="space-y-3 max-h-[52vh] overflow-y-auto pr-1">
+          <div ref={chatScrollRef} className="min-h-[14rem] flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
             {messages.length === 0 ? (
               <p className="text-white/60">Start a conversation. Ask for containment steps, explain a vulnerability, or request secure code guidance.</p>
             ) : null}
@@ -86,17 +93,16 @@ export default function Copilot() {
               <div key={`${entry.role}-${index}`} className={`flex ${entry.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-3xl rounded-2xl px-4 py-3 border ${entry.role === 'user' ? 'bg-cyan/10 border-cyan/30 text-white' : 'bg-black/35 border-lime/20 text-lime'}`}>
                   {entry.role === 'assistant' ? (
-                    <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-lime/70 flex flex-wrap gap-2">
-                      <span>{entry.provider === 'openai' ? 'OpenAI' : entry.provider === 'gemini' ? 'Gemini' : 'Fallback'}</span>
-                      {entry.status ? <span className={entry.status === 'ready' ? 'text-emerald-300' : 'text-amber-300'}>{entry.status === 'ready' ? 'Live' : 'Fallback'}</span> : null}
-                      {entry.reason ? <span className="text-white/40">{entry.reason}</span> : null}
+                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-lime/70">
+                      <span className="uppercase tracking-[0.2em]">{entry.provider === 'openai' ? 'OpenAI' : entry.provider === 'gemini' ? 'Gemini' : 'Fallback'}</span>
+                      {entry.status ? <span className={`uppercase tracking-[0.2em] ${entry.status === 'ready' ? 'text-emerald-300' : 'text-amber-300'}`}>{entry.status === 'ready' ? 'Live' : 'Fallback'}</span> : null}
+                      {entry.reason ? <span className="max-w-full break-words normal-case leading-relaxed tracking-normal text-white/45">{entry.reason}</span> : null}
                     </div>
                   ) : null}
                   {entry.role === 'assistant' ? <TypingText text={entry.content} /> : <p className="whitespace-pre-wrap">{entry.content}</p>}
                 </div>
               </div>
             ))}
-            <div ref={endRef} />
           </div>
 
           <textarea
@@ -108,7 +114,7 @@ export default function Copilot() {
                 ask();
               }
             }}
-            rows={4}
+            rows={3}
             className="w-full p-3 bg-black/40 rounded border border-cyan/30"
             placeholder="Ask the security copilot something..."
           />

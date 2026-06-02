@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import re
+import time
 from dataclasses import dataclass
 import logging
 
@@ -42,6 +43,9 @@ class ThreatIntelResult:
 
 
 class ThreatIntelligence:
+    _ip_cache: dict[str, tuple[float, dict]] = {}
+    _ip_cache_ttl_seconds = 300
+
     @staticmethod
     def _threatfox_endpoint() -> str | None:
         value = settings.threatfox_api_key
@@ -50,6 +54,18 @@ class ThreatIntelligence:
         if value.startswith("http://") or value.startswith("https://"):
             return value
         return "https://threatfox-api.abuse.ch/api/v1/"
+
+    @staticmethod
+    def _parse_ip(ip: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+        try:
+            return ipaddress.ip_address(ip)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _can_use_external_reputation(ip: str) -> bool:
+        parsed = ThreatIntelligence._parse_ip(ip)
+        return bool(parsed and parsed.is_global)
 
     @staticmethod
     def _basic_ip_profile(ip: str, user_agent: str | None = None) -> ThreatIntelResult:
@@ -100,12 +116,24 @@ class ThreatIntelligence:
 
     @staticmethod
     async def enrich_ip(ip: str, user_agent: str | None = None) -> dict:
+        cache_key = f"{ip}|{user_agent or ''}"
+        cached = ThreatIntelligence._ip_cache.get(cache_key)
+        now = time.monotonic()
+        if cached and now - cached[0] < ThreatIntelligence._ip_cache_ttl_seconds:
+            return cached[1]
+
         result = ThreatIntelligence._basic_ip_profile(ip, user_agent=user_agent)
         sources = result.sources
         threatfox_endpoint = ThreatIntelligence._threatfox_endpoint()
 
+        if not ThreatIntelligence._can_use_external_reputation(ip):
+            result.sources["local"] = {"reason": "external_reputation_skipped_for_non_global_ip"}
+            payload = result.as_dict()
+            ThreatIntelligence._ip_cache[cache_key] = (now, payload)
+            return payload
+
         async def enrich_sources() -> None:
-            timeout = httpx.Timeout(3.0, connect=2.0, read=3.0, write=3.0, pool=3.0)
+            timeout = httpx.Timeout(2.0, connect=1.0, read=2.0, write=2.0, pool=1.0)
             async with httpx.AsyncClient(timeout=timeout) as client:
                 if settings.virustotal_api_key:
                     try:
@@ -118,8 +146,10 @@ class ThreatIntelligence:
                             sources["virustotal"] = payload
                             result.threat_reputation_score = min(100, max(result.threat_reputation_score, int(payload.get("last_analysis_stats", {}).get("malicious", 0) * 20)))
                             result.malicious = result.malicious or result.threat_reputation_score >= 50
+                    except httpx.TimeoutException:
+                        logger.info("VirusTotal lookup timed out for %s", ip)
                     except Exception as exc:
-                        logger.exception("VirusTotal lookup failed for %s: %s", ip, exc)
+                        logger.warning("VirusTotal lookup failed for %s: %s", ip, exc)
 
                 if threatfox_endpoint:
                     try:
@@ -137,8 +167,10 @@ class ThreatIntelligence:
                                     result.threat_reputation_score = min(100, max(result.threat_reputation_score, 60))
                                     result.malicious = True
                                     result.indicators.append("threatfox_ioc_match")
+                    except httpx.TimeoutException:
+                        logger.info("ThreatFox lookup timed out for %s", ip)
                     except Exception as exc:
-                        logger.exception("ThreatFox lookup failed for %s: %s", ip, exc)
+                        logger.warning("ThreatFox lookup failed for %s: %s", ip, exc)
 
                 if settings.abuseipdb_api_key:
                     try:
@@ -153,8 +185,10 @@ class ThreatIntelligence:
                             abuse_score = int(float(payload.get("abuseConfidenceScore", 0)))
                             result.threat_reputation_score = max(result.threat_reputation_score, abuse_score)
                             result.malicious = result.malicious or abuse_score >= 50
+                    except httpx.TimeoutException:
+                        logger.info("AbuseIPDB lookup timed out for %s", ip)
                     except Exception as exc:
-                        logger.exception("AbuseIPDB lookup failed for %s: %s", ip, exc)
+                        logger.warning("AbuseIPDB lookup failed for %s: %s", ip, exc)
 
                 if settings.shodan_api_key:
                     try:
@@ -168,15 +202,19 @@ class ThreatIntelligence:
                             result.asn = payload.get("asn", result.asn)
                             result.country = payload.get("country_name", result.country)
                             result.threat_reputation_score = min(100, result.threat_reputation_score + 10)
+                    except httpx.TimeoutException:
+                        logger.info("Shodan lookup timed out for %s", ip)
                     except Exception as exc:
-                        logger.exception("Shodan lookup failed for %s: %s", ip, exc)
+                        logger.warning("Shodan lookup failed for %s: %s", ip, exc)
 
         try:
-            await asyncio.wait_for(enrich_sources(), timeout=8.0)
+            await asyncio.wait_for(enrich_sources(), timeout=5.0)
         except TimeoutError:
             logger.warning("Threat intel enrichment timed out for %s; returning fallback profile", ip)
 
-        return result.as_dict()
+        payload = result.as_dict()
+        ThreatIntelligence._ip_cache[cache_key] = (time.monotonic(), payload)
+        return payload
 
     @staticmethod
     async def analyze_indicator(indicator: str, kind: str = "ip", user_agent: str | None = None) -> dict:
