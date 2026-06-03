@@ -40,7 +40,7 @@ export default function Login() {
     try {
       const data = await login({ email, password });
       loginUser(data.access_token);
-      const profile = await me();
+      const profile = await me(data.access_token);
       setUser(profile);
       navigate('/');
     } catch (err) {

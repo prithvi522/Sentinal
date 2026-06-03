@@ -28,6 +28,7 @@ const IntegrityMonitor = lazy(() => import('./pages/IntegrityMonitor'));
 const LockdownMode = lazy(() => import('./pages/LockdownMode'));
 const ThreatPrediction = lazy(() => import('./pages/ThreatPrediction'));
 const AIRecommendations = lazy(() => import('./pages/AIRecommendations'));
+const NewUI = lazy(() => import('./pages/NewUI'));
 
 function RouteFallback() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
       { path: '/lockdown-mode', element: <ProtectedRoute><LockdownMode /></ProtectedRoute> },
       { path: '/threat-prediction', element: <ProtectedRoute><ThreatPrediction /></ProtectedRoute> },
       { path: '/ai-recommendations', element: <ProtectedRoute><AIRecommendations /></ProtectedRoute> },
+      { path: '/new-ui', element: <ProtectedRoute><NewUI /></ProtectedRoute> },
       { path: '/threat-intel', element: <ProtectedRoute><ThreatIntel /></ProtectedRoute> },
       { path: '/terminal-console', element: <ProtectedRoute><TerminalConsole /></ProtectedRoute> },
       { path: '/threat-hunter', element: <ProtectedRoute><ThreatHunter /></ProtectedRoute> },

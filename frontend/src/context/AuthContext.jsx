@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { me } from '../lib/api';
+import { api, me } from '../lib/api';
 
 const AuthContext = createContext(null);
 
@@ -14,10 +14,13 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    me()
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+
+    me(token)
       .then((data) => setUser(data))
       .catch(() => {
         localStorage.removeItem('sentinel_token');
+        delete api.defaults.headers.common.Authorization;
         setUser(null);
       })
       .finally(() => setLoading(false));
@@ -29,10 +32,12 @@ export function AuthProvider({ children }) {
       loading,
       loginUser: (token, profile) => {
         localStorage.setItem('sentinel_token', token);
+        api.defaults.headers.common.Authorization = `Bearer ${token}`;
         setUser(profile || null);
       },
       logout: () => {
         localStorage.removeItem('sentinel_token');
+        delete api.defaults.headers.common.Authorization;
         setUser(null);
       },
       setUser,

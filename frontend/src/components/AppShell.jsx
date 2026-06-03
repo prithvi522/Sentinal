@@ -9,6 +9,7 @@ import { getEnterpriseDashboard } from '../lib/dashboard';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Shield },
+  { to: '/new-ui', label: 'New UI', icon: Globe2 },
   { to: '/analyst', label: 'AI Analyst', icon: FlaskConical },
   { to: '/vulnerability-intelligence', label: 'Vuln Intel', icon: Database },
   { to: '/threat-intel', label: 'Threat Intel', icon: Radar },

@@ -25,7 +25,10 @@ export async function register(payload) {
   return data;
 }
 
-export async function me() {
-  const { data } = await api.get('/auth/me');
+export async function me(token) {
+  const config = token
+    ? { headers: { Authorization: `Bearer ${token}` } }
+    : undefined;
+  const { data } = await api.get('/auth/me', config);
   return data;
 }
