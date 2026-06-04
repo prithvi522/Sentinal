@@ -40,7 +40,7 @@ class SecurityCopilot:
             provider=provider,
         )
 
-        status = "ready" if ai_result.get("provider") in {"openai", "gemini"} else "fallback"
+        status = "ready" if ai_result.get("provider") in {"azure", "openai", "gemini"} else "fallback"
 
         return {
             "answer": ai_result.get("answer", fallback),

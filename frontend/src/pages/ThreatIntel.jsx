@@ -2,6 +2,20 @@ import { useState } from 'react';
 import AppShell from '../components/AppShell';
 import { api } from '../lib/api';
 
+function providerLabel(provider) {
+  if (provider === 'enriched') return 'Enriched';
+  if (provider === 'no_upstream_hits') return 'No upstream hits';
+  if (provider === 'local') return 'Local heuristic';
+  if (provider === 'fallback') return 'Fallback';
+  return provider || 'Fallback';
+}
+
+function providerTone(provider) {
+  if (provider === 'enriched') return 'text-lime';
+  if (provider === 'no_upstream_hits') return 'text-cyan';
+  return 'text-warning';
+}
+
 export default function ThreatIntel() {
   const [indicator, setIndicator] = useState('8.8.8.8');
   const [kind, setKind] = useState('ip');
@@ -53,7 +67,7 @@ export default function ThreatIntel() {
                 <p>Sources: <span className="text-lime">{Object.keys(result.sources || {}).length}</span></p>
               </div>
               <p className="text-xs uppercase tracking-[0.25em] text-white/50">
-                Analysis source: <span className={result.provider === 'fallback' ? 'text-warning' : 'text-lime'}>{result.provider || 'fallback'}</span>
+                Analysis source: <span className={providerTone(result.provider)}>{providerLabel(result.provider)}</span>
               </p>
               <div className="terminal-box">
                 <p className="text-lime mb-2">Indicators</p>

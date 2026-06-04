@@ -1,4 +1,5 @@
 import re
+import json
 
 from app.services.ai_provider import ai_provider
 
@@ -6,17 +7,48 @@ from app.services.ai_provider import ai_provider
 class PromptFirewall:
     injection_patterns = [
         r"ignore previous instructions",
+        r"disregard (?:all )?(?:previous|prior|system|safety|security) (?:instructions|rules|guidelines|policies)",
+        r"new instructions?:",
+        r"stop everything",
         r"override (all|system) rules",
         r"you are now",
         r"disregard safety",
+        r"disregard .*safety",
         r"jailbreak",
         r"reveal system prompt",
         r"developer mode",
+        r"i am (?:the )?(?:administrator|admin|root|system)",
         r"act as (?:root|admin|system)",
         r"bypass (?:safety|filters|guardrails)",
     ]
     leakage_patterns = [r"api key", r"password", r"token", r"private key", r"secret", r"ssn", r"credit card", r"jwt"]
     unsafe_patterns = [r"create malware", r"bypass authentication", r"ddos", r"exploit", r"phish", r"credential dump"]
+
+    @staticmethod
+    def _display_text(value, fallback: str) -> str:
+        if isinstance(value, str) and value.strip():
+            return value
+        if isinstance(value, dict):
+            for key in ("explanation", "decision_reason", "summary", "result"):
+                nested = value.get(key)
+                if isinstance(nested, str) and nested.strip():
+                    return nested
+            return json.dumps(value, ensure_ascii=False)
+        if isinstance(value, list):
+            return "; ".join(str(item) for item in value) or fallback
+        if value is not None:
+            return str(value)
+        return fallback
+
+    @staticmethod
+    def _bounded_int(value, fallback: int, upper_bound: int | None = None) -> int:
+        try:
+            number = int(float(value))
+        except (TypeError, ValueError):
+            number = fallback
+        if upper_bound is not None:
+            number = min(number, upper_bound)
+        return max(0, min(100, number))
 
     @staticmethod
     async def analyze(prompt: str) -> dict:
@@ -61,15 +93,28 @@ class PromptFirewall:
             fallback=fallback,
         )
 
+        provider = ai_result.get("provider", "fallback")
+        if provider == "fallback":
+            provider = "local_rules"
+
+        ai_blocked = ai_result.get("blocked", blocked)
+        final_blocked = blocked or ai_blocked is True
+        decision_reason = PromptFirewall._display_text(
+            ai_result.get("decision_reason"),
+            fallback["decision_reason"],
+        )
+        if blocked:
+            decision_reason = fallback["decision_reason"]
+
         return {
             "safety_score": safety_score,
-            "trust_score": ai_result.get("trust_score", trust_score),
+            "trust_score": PromptFirewall._bounded_int(ai_result.get("trust_score"), trust_score, trust_score),
             "jailbreak_score": jailbreak_score,
             "leakage_score": leakage_score,
             "risk_level": risk_level,
             "risks": risks,
-            "blocked": ai_result.get("blocked", blocked),
-            "explanation": ai_result.get("explanation", fallback["explanation"]),
-            "decision_reason": ai_result.get("decision_reason", fallback["decision_reason"]),
-            "provider": ai_result.get("provider", "fallback"),
+            "blocked": final_blocked,
+            "explanation": PromptFirewall._display_text(ai_result.get("explanation"), fallback["explanation"]),
+            "decision_reason": decision_reason,
+            "provider": provider,
         }

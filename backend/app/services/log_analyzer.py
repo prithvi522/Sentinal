@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 
@@ -31,6 +32,37 @@ def _split_logs(logs: str | list[str]) -> list[str]:
     if isinstance(logs, list):
         return [str(item).strip() for item in logs if str(item).strip()]
     return [line.strip() for line in str(logs).splitlines() if line.strip()]
+
+
+def _display_text(value, fallback: str) -> str:
+    if isinstance(value, str) and value.strip():
+        return value
+    if isinstance(value, dict):
+        preferred_keys = ("summary", "description", "result", "recommendation")
+        for key in preferred_keys:
+            nested = value.get(key)
+            if isinstance(nested, str) and nested.strip():
+                return nested
+
+        readable = []
+        labels = {
+            "total_logs": "total logs",
+            "total_alerts": "total alerts",
+            "threat_score": "threat score",
+            "highest_severity": "highest severity",
+            "highest_confidence": "highest confidence",
+        }
+        for key, label in labels.items():
+            if key in value:
+                readable.append(f"{label}: {value[key]}")
+        if "alerts_by_type" in value:
+            readable.append(f"alerts by type: {value['alerts_by_type']}")
+        return ", ".join(readable) if readable else json.dumps(value, ensure_ascii=False)
+    if isinstance(value, list):
+        return "; ".join(str(item) for item in value) or fallback
+    if value is not None:
+        return str(value)
+    return fallback
 
 
 async def analyze_logs(logs: str | list[str]) -> dict:
@@ -72,6 +104,7 @@ async def analyze_logs(logs: str | list[str]) -> dict:
         f"Logs:\n{chr(10).join(lines[:60])}\nIndicators: {suspicious_lines}",
         fallback_summary,
     )
+    summary = _display_text(summary, fallback_summary)
 
     terminal_lines = [
         "Ingesting log file...",

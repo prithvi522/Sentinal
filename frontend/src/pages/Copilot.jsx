@@ -69,12 +69,15 @@ export default function Copilot() {
             <button onClick={() => setProvider('auto')} className={`px-3 py-1 rounded border ${provider === 'auto' ? 'border-cyan text-cyan bg-cyan/10' : 'border-white/15 hover:border-cyan/40'}`}>
               Auto
             </button>
-            <button onClick={() => setProvider('openai')} className={`px-3 py-1 rounded border ${provider === 'openai' ? 'border-cyan text-cyan bg-cyan/10' : 'border-white/15 hover:border-cyan/40'}`}>
+            <button onClick={() => setProvider('azure')} className={`px-3 py-1 rounded border ${provider === 'azure' ? 'border-cyan text-cyan bg-cyan/10' : 'border-white/15 hover:border-cyan/40'}`}>
+              Azure OpenAI
+            </button>
+            {/* <button onClick={() => setProvider('openai')} className={`px-3 py-1 rounded border ${provider === 'openai' ? 'border-cyan text-cyan bg-cyan/10' : 'border-white/15 hover:border-cyan/40'}`}>
               OpenAI
             </button>
             <button onClick={() => setProvider('gemini')} className={`px-3 py-1 rounded border ${provider === 'gemini' ? 'border-cyan text-cyan bg-cyan/10' : 'border-white/15 hover:border-cyan/40'}`}>
               Gemini
-            </button>
+            </button> */}
           </div>
           <div className="flex flex-wrap gap-2">
             {quickCommands.map((cmd) => (
@@ -94,7 +97,7 @@ export default function Copilot() {
                 <div className={`max-w-3xl rounded-2xl px-4 py-3 border ${entry.role === 'user' ? 'bg-cyan/10 border-cyan/30 text-white' : 'bg-black/35 border-lime/20 text-lime'}`}>
                   {entry.role === 'assistant' ? (
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-lime/70">
-                      <span className="uppercase tracking-[0.2em]">{entry.provider === 'openai' ? 'OpenAI' : entry.provider === 'gemini' ? 'Gemini' : 'Fallback'}</span>
+                      <span className="uppercase tracking-[0.2em]">{entry.provider === 'azure' ? 'Azure' : entry.provider === 'openai' ? 'OpenAI' : entry.provider === 'gemini' ? 'Gemini' : 'Fallback'}</span>
                       {entry.status ? <span className={`uppercase tracking-[0.2em] ${entry.status === 'ready' ? 'text-emerald-300' : 'text-amber-300'}`}>{entry.status === 'ready' ? 'Live' : 'Fallback'}</span> : null}
                       {entry.reason ? <span className="max-w-full break-words normal-case leading-relaxed tracking-normal text-white/45">{entry.reason}</span> : null}
                     </div>
