@@ -160,6 +160,7 @@ WebSocket endpoint:
 
 - Use `CHATGPT_API_KEY` for the ChatGPT/OpenAI provider.
 - `OPENAI_API_KEY` is still accepted for backward compatibility.
+- Use `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, and `AZURE_OPENAI_API_VERSION` for Azure OpenAI deployments. Azure AI Foundry `/openai/v1` endpoints are also supported; set `AZURE_OPENAI_ENDPOINT` to the full `/openai/v1` base URL and `AZURE_OPENAI_DEPLOYMENT` to the model/deployment name shown in Foundry.
 - `GEMINI_API_KEY` continues to power the Gemini provider.
 - Optional threat-intelligence providers: `VIRUSTOTAL_API_KEY`, `THREATFOX_API_KEY`, `ABUSEIPDB_API_KEY`, and `SHODAN_API_KEY`.
 - Rate limiting can be tuned with `RATE_LIMIT_REQUESTS` and `RATE_LIMIT_WINDOW_SECONDS`.

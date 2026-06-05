@@ -27,6 +27,14 @@ const navItems = [
   { to: '/copilot', label: 'Security Copilot', icon: Bot },
 ];
 
+function displayValue(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value, null, 2);
+}
+
 export default function AppShell({ children }) {
   const { logout, user } = useAuth();
   const location = useLocation();
@@ -58,6 +66,8 @@ export default function AppShell({ children }) {
     r.lang = 'en-US';
     r.interimResults = false;
     r.maxAlternatives = 1;
+    r.continuous = false;
+    r.onstart = () => setIsListening(true);
     r.onresult = async (event) => {
       const text = event.results[0][0].transcript;
       try {
@@ -71,12 +81,19 @@ export default function AppShell({ children }) {
         window.speechSynthesis.speak(utter);
       }
     };
-    r.onerror = (e) => console.error('Speech recognition error', e);
+    r.onerror = (e) => {
+      console.error('Speech recognition error', e);
+      setIsListening(false);
+    };
+    r.onend = () => setIsListening(false);
     setRecognition(r);
     return () => {
       if (r) {
         r.onresult = null;
         r.onerror = null;
+        r.onend = null;
+        r.onstart = null;
+        try { r.abort(); } catch {}
       }
     };
   }, []);
@@ -181,11 +198,17 @@ export default function AppShell({ children }) {
   const handleMicClick = () => {
     if (!recognition) return;
     if (isListening) {
-      recognition.stop();
+      try { recognition.stop(); } catch {}
       setIsListening(false);
     } else {
-      recognition.start();
-      setIsListening(true);
+      try {
+        recognition.start();
+      } catch {
+        try { recognition.abort(); } catch {}
+        window.setTimeout(() => {
+          try { recognition.start(); } catch {}
+        }, 150);
+      }
     }
   };
 
@@ -312,8 +335,8 @@ export default function AppShell({ children }) {
               className={`pointer-events-auto rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${toast.tone === 'critical' ? 'border-rose-500/40 bg-rose-500/15' : toast.tone === 'high' ? 'border-orange-500/40 bg-orange-500/15' : toast.tone === 'medium' ? 'border-amber-500/40 bg-amber-500/15' : 'border-cyan/30 bg-cyan/10'}`}
             >
               <p className="text-xs uppercase tracking-[0.25em] text-white/50">Security Notification</p>
-              <p className="mt-1 font-semibold text-white">{toast.title}</p>
-              <p className="text-sm text-white/80 mt-1">{toast.message}</p>
+              <p className="mt-1 font-semibold text-white">{displayValue(toast.title)}</p>
+              <p className="text-sm text-white/80 mt-1 whitespace-pre-wrap">{displayValue(toast.message)}</p>
             </motion.div>
           ))}
         </div>
@@ -378,7 +401,7 @@ export default function AppShell({ children }) {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {statusIcon(module.state)}
-                    <span className="text-sm font-medium truncate">{module.label}</span>
+                    <span className="text-sm font-medium truncate">{displayValue(module.label)}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <ArrowUpRight size={12} className="opacity-70" />

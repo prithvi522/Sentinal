@@ -11,6 +11,14 @@ const sampleLogs = [
   { timestamp: new Date().toISOString(), source_ip: '10.1.2.33', action: 'api_request', status: 'ok', user_agent: 'LoadGen Proxy' },
 ];
 
+function displayValue(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value, null, 2);
+}
+
 export default function ThreatHunter() {
   const [logs, setLogs] = useState(JSON.stringify(sampleLogs, null, 2));
   const [result, setResult] = useState(null);
@@ -66,34 +74,34 @@ export default function ThreatHunter() {
           <div className="glass-card p-4 space-y-2">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <p>Threat Score: <span className="text-danger">{result.threat_score}</span></p>
-              <p>Predicted Next Severity: <span className="uppercase text-warning">{result.predicted_next_severity}</span></p>
+              <p>Predicted Next Severity: <span className="uppercase text-warning">{displayValue(result.predicted_next_severity)}</span></p>
               <p>Alerts: <span className="text-cyan">{result.alerts.length}</span></p>
               <p>Enriched Alerts: <span className="text-lime">{result.enriched_alerts?.length || 0}</span></p>
             </div>
-            <p>{result.summary}</p>
+            <p className="whitespace-pre-wrap">{displayValue(result.summary)}</p>
             {result.anomaly_summary ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-white/70">
                 <div className="terminal-box">
                   <p className="text-lime mb-2">Top Failed IPs</p>
-                  {result.anomaly_summary.top_failed_ips?.map((row, i) => <p key={i}>{row.ip} :: {row.failed_attempts}</p>)}
+                  {result.anomaly_summary.top_failed_ips?.map((row, i) => <p key={i}>{displayValue(row.ip)} :: {displayValue(row.failed_attempts)}</p>)}
                 </div>
                 <div className="terminal-box">
                   <p className="text-lime mb-2">Unusual User Agents</p>
-                  {result.anomaly_summary.unusual_user_agents?.map((row, i) => <p key={i}>{row.user_agent} :: {row.count}</p>)}
+                  {result.anomaly_summary.unusual_user_agents?.map((row, i) => <p key={i}>{displayValue(row.user_agent)} :: {displayValue(row.count)}</p>)}
                 </div>
                 <div className="terminal-box">
                   <p className="text-lime mb-2">Suspicious Login Sources</p>
-                  {result.anomaly_summary.suspicious_login_sources?.map((row, i) => <p key={i}>{row.ip} / {row.action} :: {row.count}</p>)}
+                  {result.anomaly_summary.suspicious_login_sources?.map((row, i) => <p key={i}>{displayValue(row.ip)} / {displayValue(row.action)} :: {displayValue(row.count)}</p>)}
                 </div>
               </div>
             ) : null}
             <div className="terminal-box">
               {result.alerts.map((a, i) => (
                 <div key={i} className="mb-3 border-b border-white/10 pb-3">
-                  <p>{a.type} | {a.source_ip} | {a.severity} | confidence {a.confidence}</p>
+                  <p>{displayValue(a.type)} | {displayValue(a.source_ip)} | {displayValue(a.severity)} | confidence {displayValue(a.confidence)}</p>
                   {a.ip_intel && (
                     <p className="text-white/60 text-xs mt-1">
-                      Intel: score {a.ip_intel.threat_reputation_score} | {a.ip_intel.asn} | {a.ip_intel.country} | tor {a.ip_intel.is_tor ? 'yes' : 'no'}
+                      Intel: score {displayValue(a.ip_intel.threat_reputation_score)} | {displayValue(a.ip_intel.asn)} | {displayValue(a.ip_intel.country)} | tor {a.ip_intel.is_tor ? 'yes' : 'no'}
                     </p>
                   )}
                 </div>

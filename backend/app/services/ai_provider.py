@@ -6,8 +6,11 @@ from app.core.config import settings
 
 
 class AIProvider:
+    _azure_timeout_seconds = 30.0
+
     def __init__(self) -> None:
         # Defer heavy client initialization until first use to avoid import-time failures.
+        self.azure_openai_client = None
         self.openai_client = None
         self.gemini_model = None
         self.langchain_openai = None
@@ -30,12 +33,49 @@ class AIProvider:
                 ordered.append(candidate)
         return ordered
 
+    @staticmethod
+    def _is_azure_openai_v1_endpoint(endpoint: str | None) -> bool:
+        return bool(endpoint and endpoint.rstrip("/").endswith("/openai/v1"))
+
+    @staticmethod
+    def _chat_completion_options(model: str | None) -> dict[str, Any]:
+        if model and model.lower().startswith("gpt-5"):
+            return {}
+        return {"temperature": 0.2}
+
     def _ensure_initialized(self) -> None:
         if self._initialized:
             return
         self._initialized = True
 
         chatgpt_key = settings.chatgpt_api_key or settings.openai_api_key
+        if settings.azure_openai_endpoint:
+            try:
+                endpoint = settings.azure_openai_endpoint.rstrip("/")
+                if self._is_azure_openai_v1_endpoint(endpoint):
+                    from openai import AsyncOpenAI
+
+                    api_key = settings.azure_openai_api_key
+                    if not api_key:
+                        from azure.identity import DefaultAzureCredential, get_bearer_token_provider  # type: ignore[import]
+
+                        api_key = get_bearer_token_provider(
+                            DefaultAzureCredential(),
+                            "https://ai.azure.com/.default",
+                        )
+
+                    self.azure_openai_client = AsyncOpenAI(base_url=endpoint, api_key=api_key)
+                elif settings.azure_openai_api_key:
+                    from openai import AsyncAzureOpenAI
+
+                    self.azure_openai_client = AsyncAzureOpenAI(
+                        api_key=settings.azure_openai_api_key,
+                        azure_endpoint=endpoint,
+                        api_version=settings.azure_openai_api_version,
+                    )
+            except Exception:
+                self.azure_openai_client = None
+
         if chatgpt_key:
             try:
                 from openai import AsyncOpenAI
@@ -158,6 +198,38 @@ class AIProvider:
         self._ensure_initialized()
 
         requested_provider = (provider or "auto").lower()
+        json_system_prompt = f"{system_prompt}\nRespond with a valid JSON object only."
+
+        if requested_provider in {"auto", "azure"}:
+            result = None
+            if self.azure_openai_client and settings.azure_openai_deployment:
+                try:
+                    response = await asyncio.wait_for(
+                        self.azure_openai_client.chat.completions.create(
+                            model=settings.azure_openai_deployment,
+                            response_format={"type": "json_object"},
+                            messages=[
+                                {"role": "system", "content": json_system_prompt},
+                                {"role": "user", "content": user_prompt},
+                            ],
+                            **self._chat_completion_options(settings.azure_openai_deployment),
+                        ),
+                        timeout=self._azure_timeout_seconds,
+                    )
+                    content = response.choices[0].message.content or "{}"
+                    result = self._extract_json(content)
+                except TimeoutError:
+                    result = None
+                except Exception:
+                    result = None
+
+            if result is not None:
+                result.setdefault("provider", "azure")
+                return result
+
+            if requested_provider == "azure":
+                fallback.setdefault("provider", "fallback")
+                return fallback
 
         if requested_provider in {"auto", "gemini"}:
             result = None
@@ -197,12 +269,12 @@ class AIProvider:
                             model=settings.openai_model,
                             response_format={"type": "json_object"},
                             messages=[
-                                {"role": "system", "content": system_prompt},
+                                {"role": "system", "content": json_system_prompt},
                                 {"role": "user", "content": user_prompt},
                             ],
-                            temperature=0.2,
+                            **self._chat_completion_options(settings.openai_model),
                         ),
-                        timeout=8.0,
+                        timeout=self._azure_timeout_seconds,
                     )
                     content = response.choices[0].message.content or "{}"
                     result = self._extract_json(content)
@@ -228,9 +300,52 @@ class AIProvider:
         self._ensure_initialized()
 
         requested_provider = (provider or "auto").lower()
-        if requested_provider not in {"auto", "gemini", "openai"}:
+        if requested_provider not in {"auto", "azure", "gemini", "openai"}:
             requested_provider = "auto"
         failures: list[str] = []
+
+        if requested_provider in {"auto", "azure"}:
+            if self.azure_openai_client and settings.azure_openai_deployment:
+                try:
+                    response = await asyncio.wait_for(
+                        self.azure_openai_client.chat.completions.create(
+                            model=settings.azure_openai_deployment,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt},
+                            ],
+                            **self._chat_completion_options(settings.azure_openai_deployment),
+                        ),
+                        timeout=8.0,
+                    )
+                    content = (response.choices[0].message.content or "").strip()
+                    if content:
+                        return {
+                            "answer": content,
+                            "provider": "azure",
+                            "model": settings.azure_openai_deployment,
+                        }
+                except TimeoutError:
+                    failures.append("Azure OpenAI request timed out")
+                except Exception as exc:
+                    failures.append(self._safe_error_summary("Azure OpenAI request failed", exc))
+            elif settings.azure_openai_endpoint or settings.azure_openai_api_key or settings.azure_openai_deployment:
+                missing = []
+                if not settings.azure_openai_endpoint:
+                    missing.append("AZURE_OPENAI_ENDPOINT")
+                if not settings.azure_openai_api_key and not self._is_azure_openai_v1_endpoint(settings.azure_openai_endpoint):
+                    missing.append("AZURE_OPENAI_API_KEY")
+                if not settings.azure_openai_deployment:
+                    missing.append("AZURE_OPENAI_DEPLOYMENT")
+                if self.azure_openai_client is None and not missing:
+                    failures.append("Azure OpenAI client unavailable")
+                else:
+                    failures.append(f"Azure OpenAI missing {', '.join(missing)}")
+            else:
+                failures.append("Azure OpenAI is not configured")
+
+            if requested_provider == "azure":
+                return {"answer": fallback, "provider": "fallback", "reason": "; ".join(failures)}
 
         if requested_provider in {"auto", "gemini"}:
             if self.langchain_gemini:
@@ -294,7 +409,7 @@ class AIProvider:
                                 {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": user_prompt},
                             ],
-                            temperature=0.2,
+                            **self._chat_completion_options(settings.openai_model),
                         ),
                         timeout=8.0,
                     )

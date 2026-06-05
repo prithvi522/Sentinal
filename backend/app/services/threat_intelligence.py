@@ -44,6 +44,7 @@ class ThreatIntelResult:
 
 class ThreatIntelligence:
     _ip_cache: dict[str, tuple[float, dict]] = {}
+    _indicator_cache: dict[str, tuple[float, dict]] = {}
     _ip_cache_ttl_seconds = 300
 
     @staticmethod
@@ -66,6 +67,17 @@ class ThreatIntelligence:
     def _can_use_external_reputation(ip: str) -> bool:
         parsed = ThreatIntelligence._parse_ip(ip)
         return bool(parsed and parsed.is_global)
+
+    @staticmethod
+    def _provider_for_sources(sources: dict, upstream_configured: bool) -> str:
+        upstream_sources = {name: payload for name, payload in sources.items() if name != "local" and payload}
+        if upstream_sources:
+            return "enriched"
+        if sources.get("local"):
+            return "local"
+        if upstream_configured:
+            return "no_upstream_hits"
+        return "local"
 
     @staticmethod
     def _basic_ip_profile(ip: str, user_agent: str | None = None) -> ThreatIntelResult:
@@ -120,15 +132,24 @@ class ThreatIntelligence:
         cached = ThreatIntelligence._ip_cache.get(cache_key)
         now = time.monotonic()
         if cached and now - cached[0] < ThreatIntelligence._ip_cache_ttl_seconds:
+            cached[1].setdefault(
+                "provider",
+                ThreatIntelligence._provider_for_sources(
+                    cached[1].get("sources", {}),
+                    bool(settings.virustotal_api_key or settings.abuseipdb_api_key or settings.shodan_api_key or ThreatIntelligence._threatfox_endpoint()),
+                ),
+            )
             return cached[1]
 
         result = ThreatIntelligence._basic_ip_profile(ip, user_agent=user_agent)
         sources = result.sources
         threatfox_endpoint = ThreatIntelligence._threatfox_endpoint()
+        upstream_configured = bool(settings.virustotal_api_key or settings.abuseipdb_api_key or settings.shodan_api_key or threatfox_endpoint)
 
         if not ThreatIntelligence._can_use_external_reputation(ip):
             result.sources["local"] = {"reason": "external_reputation_skipped_for_non_global_ip"}
             payload = result.as_dict()
+            payload["provider"] = "local"
             ThreatIntelligence._ip_cache[cache_key] = (now, payload)
             return payload
 
@@ -213,6 +234,9 @@ class ThreatIntelligence:
             logger.warning("Threat intel enrichment timed out for %s; returning fallback profile", ip)
 
         payload = result.as_dict()
+        payload["provider"] = ThreatIntelligence._provider_for_sources(sources, upstream_configured)
+        if payload["provider"] == "no_upstream_hits":
+            payload["sources"]["local"] = {"reason": "Configured upstream sources returned no hit for this IP."}
         ThreatIntelligence._ip_cache[cache_key] = (time.monotonic(), payload)
         return payload
 
@@ -220,6 +244,12 @@ class ThreatIntelligence:
     async def analyze_indicator(indicator: str, kind: str = "ip", user_agent: str | None = None) -> dict:
         if kind == "ip":
             return await ThreatIntelligence.enrich_ip(indicator, user_agent=user_agent)
+
+        cache_key = f"{kind}|{indicator}|{user_agent or ''}"
+        cached = ThreatIntelligence._indicator_cache.get(cache_key)
+        now = time.monotonic()
+        if cached and now - cached[0] < ThreatIntelligence._ip_cache_ttl_seconds:
+            return cached[1]
 
         score = 20
         indicators = [f"{kind}_observed"]
@@ -229,8 +259,28 @@ class ThreatIntelligence:
 
         sources = {}
         threatfox_endpoint = ThreatIntelligence._threatfox_endpoint()
-        if threatfox_endpoint:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=2.0, read=5.0, write=3.0, pool=2.0)) as client:
+            if kind == "domain" and settings.virustotal_api_key:
+                try:
+                    response = await client.get(
+                        f"https://www.virustotal.com/api/v3/domains/{indicator}",
+                        headers={"x-apikey": settings.virustotal_api_key},
+                    )
+                    if response.status_code == 200:
+                        payload = response.json().get("data", {}).get("attributes", {})
+                        sources["virustotal"] = payload
+                        stats = payload.get("last_analysis_stats", {}) if isinstance(payload, dict) else {}
+                        malicious_count = int(stats.get("malicious", 0) or 0)
+                        suspicious_count = int(stats.get("suspicious", 0) or 0)
+                        score = max(score, min(100, malicious_count * 25 + suspicious_count * 10))
+                        if malicious_count or suspicious_count:
+                            indicators.append("virustotal_domain_detection")
+                except httpx.TimeoutException:
+                    logger.info("VirusTotal domain lookup timed out for %s", indicator)
+                except Exception as exc:
+                    logger.warning("VirusTotal domain lookup failed for %s: %s", indicator, exc)
+
+            if threatfox_endpoint:
                 try:
                     response = await client.post(
                         threatfox_endpoint,
@@ -244,9 +294,18 @@ class ThreatIntelligence:
                             score = max(score, 65)
                             indicators.append("threatfox_match")
                 except Exception:
-                    pass
+                    logger.warning("ThreatFox indicator lookup failed for %s", indicator)
 
-        return {
+        if sources:
+            provider = "enriched"
+        elif settings.virustotal_api_key or threatfox_endpoint:
+            provider = "no_upstream_hits"
+            sources["local"] = {"reason": "No configured upstream source returned a hit for this indicator."}
+        else:
+            provider = "local"
+            sources["local"] = {"reason": "No threat intelligence API keys are configured for this indicator type."}
+
+        payload = {
             "indicator": indicator,
             "kind": kind,
             "malicious": score >= 50,
@@ -258,5 +317,7 @@ class ThreatIntelligence:
             "is_proxy": False,
             "is_vpn": False,
             "sources": sources,
-            "provider": "fallback" if not sources else "enriched",
+            "provider": provider,
         }
+        ThreatIntelligence._indicator_cache[cache_key] = (time.monotonic(), payload)
+        return payload

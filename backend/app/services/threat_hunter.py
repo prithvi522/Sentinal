@@ -1,8 +1,42 @@
 import asyncio
+import json
 from collections import Counter
 
 from app.services.threat_intelligence import ThreatIntelligence
 from app.services.ai_provider import ai_provider
+
+
+def _display_text(value, fallback: str) -> str:
+    if isinstance(value, str) and value.strip():
+        return value
+    if isinstance(value, dict):
+        preferred_keys = ("summary", "description", "result", "recommendation")
+        for key in preferred_keys:
+            nested = value.get(key)
+            if isinstance(nested, str) and nested.strip():
+                return nested
+
+        readable = []
+        labels = {
+            "total_logs": "total logs",
+            "total_alerts": "total alerts",
+            "threat_score": "threat score",
+            "highest_severity": "highest severity",
+            "highest_confidence": "highest confidence",
+            "notable_ips": "notable IPs",
+            "proxy_vpn_alerts": "proxy/VPN alerts",
+        }
+        for key, label in labels.items():
+            if key in value:
+                readable.append(f"{label}: {value[key]}")
+        if "alerts_by_type" in value:
+            readable.append(f"alerts by type: {value['alerts_by_type']}")
+        return ", ".join(readable) if readable else json.dumps(value, ensure_ascii=False)
+    if isinstance(value, list):
+        return "; ".join(str(item) for item in value) or fallback
+    if value is not None:
+        return str(value)
+    return fallback
 
 
 class ThreatHunter:
@@ -198,7 +232,7 @@ class ThreatHunter:
             "threat_score": threat_score,
             "alerts": alerts,
             "enriched_alerts": enriched_alerts,
-            "summary": ai_result.get("summary", fallback["summary"]),
-            "predicted_next_severity": ai_result.get("predicted_next_severity", fallback["predicted_next_severity"]),
+            "summary": _display_text(ai_result.get("summary"), fallback["summary"]),
+            "predicted_next_severity": _display_text(ai_result.get("predicted_next_severity"), fallback["predicted_next_severity"]),
             "anomaly_summary": anomaly_summary,
         }

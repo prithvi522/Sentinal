@@ -4,6 +4,14 @@ import { FileText, UploadCloud, ShieldAlert } from 'lucide-react';
 import AppShell from '../components/AppShell';
 import { api } from '../lib/api';
 
+function displayValue(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value, null, 2);
+}
+
 export default function LogAnalyzer() {
   const [logText, setLogText] = useState('Jan 01 10:22:01 auth sshd[123]: Failed password for admin from 10.0.0.12\nJan 01 10:22:04 auth sshd[123]: Failed password for admin from 10.0.0.12\nJan 01 10:22:07 auth sshd[123]: Failed password for admin from 10.0.0.12\nJan 01 10:22:10 auth sshd[123]: Failed password for admin from 10.0.0.12');
   const [fileName, setFileName] = useState('sample.log');
@@ -51,7 +59,7 @@ export default function LogAnalyzer() {
             <div className="flex items-center justify-between gap-3 mb-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-white/40">Summary</p>
-                <h2 className="font-display text-xl text-lime mt-1">{result?.result || 'Awaiting scan'}</h2>
+                <h2 className="font-display text-xl text-lime mt-1">{displayValue(result?.result) || 'Awaiting scan'}</h2>
               </div>
               <div className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/60">{result?.severity || 'LOW'}</div>
             </div>
@@ -69,20 +77,20 @@ export default function LogAnalyzer() {
 
             <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 p-3 terminal-box min-h-44">
               {(result?.terminal_logs || ['Waiting for local analysis...']).map((line, index) => (
-                <p key={index} className="mb-1 text-lime-200">&gt; {line}</p>
+                <p key={index} className="mb-1 text-lime-200 whitespace-pre-wrap">&gt; {displayValue(line)}</p>
               ))}
             </div>
 
             <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 p-3">
               <p className="text-white/40 text-xs uppercase tracking-[0.2em] mb-2">AI-style summary</p>
-              <p className="text-white/80 text-sm">{result?.summary || 'The analyzer will summarize repeated failures, brute force hints, and suspicious IP activity.'}</p>
+              <p className="text-white/80 text-sm whitespace-pre-wrap">{displayValue(result?.summary) || 'The analyzer will summarize repeated failures, brute force hints, and suspicious IP activity.'}</p>
             </div>
 
             <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 p-3">
               <p className="text-white/40 text-xs uppercase tracking-[0.2em] mb-2">Anomalies</p>
               <div className="space-y-1 text-white/80 text-sm max-h-44 overflow-y-auto pr-1">
                 {(result?.anomalies || []).map((item, index) => (
-                  <p key={index} className="flex gap-2"><ShieldAlert size={14} className="mt-0.5 text-warning" />{item}</p>
+                  <p key={index} className="flex gap-2"><ShieldAlert size={14} className="mt-0.5 text-warning shrink-0" />{displayValue(item)}</p>
                 ))}
               </div>
             </div>

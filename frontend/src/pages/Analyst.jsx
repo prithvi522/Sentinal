@@ -9,6 +9,14 @@ const scanStages = [
   'Generating fixes and summary',
 ];
 
+function displayValue(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value, null, 2);
+}
+
 export default function Analyst() {
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
@@ -104,10 +112,10 @@ async function onSubmit(e) {
               <p>Provider: <span className="text-cyan uppercase">{result.provider || 'fallback'}</span></p>
               <p>Findings: <span className="text-lime">{result.findings.length}</span></p>
             </div>
-            <p className="text-white/80">{result.ai_summary}</p>
+            <p className="text-white/80 whitespace-pre-wrap">{displayValue(result.ai_summary)}</p>
             <div className="terminal-box mt-2">
               <p className="text-lime mb-2">AI Fix Snippet</p>
-              <pre className="whitespace-pre-wrap text-sm text-white/80">{result.secure_fix_snippet}</pre>
+              <pre className="whitespace-pre-wrap text-sm text-white/80">{displayValue(result.secure_fix_snippet)}</pre>
             </div>
             <div className="terminal-box mt-2">
               <p className="text-lime mb-2">Findings</p>
@@ -118,7 +126,7 @@ async function onSubmit(e) {
             <div className="terminal-box mt-2">
               <p className="text-lime mb-2">Generated Fixes</p>
               {Object.entries(result.generated_fixes || {}).map(([line, fix]) => (
-                <p key={line}>Line {line}: {fix.suggestion}</p>
+                <p key={line}>Line {line}: {displayValue(fix.suggestion)}</p>
               ))}
             </div>
           </div>

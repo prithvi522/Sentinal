@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Navigate } from 'react-router-dom';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, useRouteError } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -38,35 +38,50 @@ function RouteFallback() {
   );
 }
 
+function RouteError() {
+  const error = useRouteError();
+  return (
+    <div className="min-h-screen bg-[#040814] p-6 text-white">
+      <div className="mx-auto mt-20 max-w-2xl rounded-xl border border-rose-500/30 bg-rose-500/10 p-6">
+        <p className="text-xs uppercase tracking-[0.25em] text-rose-200/70">Application error</p>
+        <h1 className="mt-2 font-display text-3xl text-rose-100">This view hit an unexpected payload.</h1>
+        <p className="mt-3 whitespace-pre-wrap text-sm text-white/70">{error?.message || 'Refresh the page and try the action again.'}</p>
+        <button onClick={() => window.location.reload()} className="mt-5 rounded-lg bg-cyan px-4 py-2 font-semibold text-black">
+          Refresh
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const router = createBrowserRouter(
     [
-      { path: '/login', element: <Login /> },
-      { path: '/register', element: <Register /> },
-      { path: '/', element: <ProtectedRoute><Dashboard /></ProtectedRoute> },
-      { path: '/analyst', element: <ProtectedRoute><Analyst /></ProtectedRoute> },
-      { path: '/prompt-firewall', element: <ProtectedRoute><PromptFirewall /></ProtectedRoute> },
-      { path: '/vulnerability-intelligence', element: <ProtectedRoute><VulnerabilityIntelligence /></ProtectedRoute> },
-      { path: '/live-attack-feed', element: <ProtectedRoute><LiveAttackFeed /></ProtectedRoute> },
-      { path: '/attack-simulator', element: <ProtectedRoute><AttackSimulator /></ProtectedRoute> },
-      { path: '/phishing-detector', element: <ProtectedRoute><PhishingDetector /></ProtectedRoute> },
-      { path: '/log-analyzer', element: <ProtectedRoute><LogAnalyzer /></ProtectedRoute> },
-      { path: '/malware-analyzer', element: <ProtectedRoute><MalwareAnalyzer /></ProtectedRoute> },
-      { path: '/threat-map', element: <ProtectedRoute><ThreatMap /></ProtectedRoute> },
-      { path: '/command-center', element: <ProtectedRoute><CommandCenter /></ProtectedRoute> },
-      { path: '/voice-assistant', element: <ProtectedRoute><VoiceAssistant /></ProtectedRoute> },
-      { path: '/soc-activity-feed', element: <ProtectedRoute><SocActivityFeed /></ProtectedRoute> },
-      { path: '/integrity-monitor', element: <ProtectedRoute><IntegrityMonitor /></ProtectedRoute> },
-      { path: '/lockdown-mode', element: <ProtectedRoute><LockdownMode /></ProtectedRoute> },
-      { path: '/threat-prediction', element: <ProtectedRoute><ThreatPrediction /></ProtectedRoute> },
-      { path: '/ai-recommendations', element: <ProtectedRoute><AIRecommendations /></ProtectedRoute> },
-      { path: '/new-ui', element: <ProtectedRoute><NewUI /></ProtectedRoute> },
-      { path: '/threat-intel', element: <ProtectedRoute><ThreatIntel /></ProtectedRoute> },
-      { path: '/terminal-console', element: <ProtectedRoute><TerminalConsole /></ProtectedRoute> },
-      { path: '/threat-hunter', element: <ProtectedRoute><ThreatHunter /></ProtectedRoute> },
-      { path: '/incident-response', element: <ProtectedRoute><IncidentResponse /></ProtectedRoute> },
-      { path: '/copilot', element: <ProtectedRoute><Copilot /></ProtectedRoute> },
-      { path: '*', element: <Navigate to='/' replace /> },
+      { path: '/login', element: <Login />, errorElement: <RouteError /> },
+      { path: '/register', element: <Register />, errorElement: <RouteError /> },
+      { path: '/', element: <ProtectedRoute><Dashboard /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/analyst', element: <ProtectedRoute><Analyst /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/prompt-firewall', element: <ProtectedRoute><PromptFirewall /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/vulnerability-intelligence', element: <ProtectedRoute><VulnerabilityIntelligence /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/live-attack-feed', element: <ProtectedRoute><LiveAttackFeed /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/attack-simulator', element: <ProtectedRoute><AttackSimulator /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/phishing-detector', element: <ProtectedRoute><PhishingDetector /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/log-analyzer', element: <ProtectedRoute><LogAnalyzer /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/malware-analyzer', element: <ProtectedRoute><MalwareAnalyzer /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/threat-map', element: <ProtectedRoute><ThreatMap /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/command-center', element: <ProtectedRoute><CommandCenter /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/voice-assistant', element: <ProtectedRoute><VoiceAssistant /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/soc-activity-feed', element: <ProtectedRoute><SocActivityFeed /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/integrity-monitor', element: <ProtectedRoute><IntegrityMonitor /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/lockdown-mode', element: <ProtectedRoute><LockdownMode /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/threat-prediction', element: <ProtectedRoute><ThreatPrediction /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/ai-recommendations', element: <ProtectedRoute><AIRecommendations /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/threat-intel', element: <ProtectedRoute><ThreatIntel /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/terminal-console', element: <ProtectedRoute><TerminalConsole /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/threat-hunter', element: <ProtectedRoute><ThreatHunter /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/incident-response', element: <ProtectedRoute><IncidentResponse /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/copilot', element: <ProtectedRoute><Copilot /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '*', element: <Navigate to='/' replace />, errorElement: <RouteError /> },
     ],
     { future: { v7_startTransition: true, v7_relativeSplatPath: true } }
   );
