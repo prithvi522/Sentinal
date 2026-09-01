@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { useState, useEffect, useRef } from 'react';
 import { createAlertsSocket } from '../lib/socket';
 import { getEnterpriseDashboard } from '../lib/dashboard';
+import AnimatedDataBackground from './AnimatedDataBackground';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: Shield },
@@ -264,6 +265,7 @@ export default function AppShell({ children }) {
 
   return (
     <div className={`h-screen overflow-hidden flex app-shell mode-${String(securityMode || 'monitoring').toLowerCase()}`}>
+      <AnimatedDataBackground />
       <div className="fixed bottom-3 left-3 right-3 z-50 lg:hidden glass-card p-2 flex items-center justify-between gap-1">
         {navItems.slice(0, 5).map((item) => (
           <NavLink
@@ -280,7 +282,7 @@ export default function AppShell({ children }) {
         ))}
       </div>
 
-      <aside className={`hidden lg:flex h-screen min-h-0 overflow-y-auto overscroll-contain flex-col gap-4 p-4 border-r border-cyan/20 bg-black/25 backdrop-blur-xl transition-all duration-300 ${sidebarCollapsed ? 'w-24' : 'w-72'}`}>
+      <aside className={`relative z-10 hidden lg:flex h-screen min-h-0 overflow-y-auto overscroll-contain flex-col gap-4 p-4 border-r border-cyan/20 bg-black/25 backdrop-blur-xl transition-all duration-300 ${sidebarCollapsed ? 'w-24' : 'w-72'}`}>
         <div className="glass-card border border-cyan/15 p-3 flex items-center justify-between gap-3">
           <Link to="/" className={`font-display text-cyan tracking-wider ${sidebarCollapsed ? 'text-base' : 'text-2xl'}`}>
             {sidebarCollapsed ? 'SAI' : 'SentinelAI OS'}
@@ -321,7 +323,7 @@ export default function AppShell({ children }) {
         </button>
       </aside>
 
-      <main className="h-screen flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 md:p-6 lg:p-8 pb-24 lg:pb-8 relative isolate">
+      <main className="relative z-10 h-screen flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 md:p-6 lg:p-8 pb-24 lg:pb-8 isolate">
         <div className="absolute inset-0 pointer-events-none cyber-scan-overlay" />
         <div className="absolute inset-0 pointer-events-none cyber-noise-overlay" />
         <div className="absolute inset-0 pointer-events-none floating-particles" />

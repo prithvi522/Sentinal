@@ -1,32 +1,22 @@
-Quick Run (local dev)
+# Quick start
 
-1) Create and activate Python venv, install backend deps:
-
-```powershell
-cd backend
-python -m venv .venv
-. .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-2) Install frontend deps and run the full dev stack:
+From the repository root in PowerShell:
 
 ```powershell
+python -m venv backend\.venv
+.\backend\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend\requirements.txt
+
 cd frontend
 npm install
 npm run dev
 ```
 
-Notes:
-- The helper script defaults to a local SQLite DB so you don't need Postgres/Docker for development.
-- `frontend/npm run dev` starts the backend on port 8000 and the Vite frontend on port 5173.
-- The frontend talks to the backend through the Vite dev proxy at `/api/v1`, so the browser does not need to hit `http://localhost:8000` directly.
-- Put real API keys in `backend/.env` or environment variables before running production features.
-- To run only the backend:
+Then open http://localhost:5173.
 
-```powershell
-cd backend
-. .\.venv\Scripts\Activate.ps1
-$env:DATABASE_URL='sqlite:///./dev.db'
-python -m uvicorn app.main:app --reload --port 8000
-```
+`npm run dev` starts FastAPI on port `8000` and Vite on port `5173`. Press `Ctrl+C` to stop the local stack.
+
+If PowerShell blocks virtual-environment activation, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` once in that terminal and retry.
+
+Optional AI and threat-intelligence keys belong in `backend/.env`. Start from `backend/.env.example`; never commit the resulting `.env` file.

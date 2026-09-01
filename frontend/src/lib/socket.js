@@ -13,7 +13,6 @@ export function createAlertsSocket(onMessage) {
       })()
     : fallbackBase;
   const ws = new WebSocket(socketBase);
-  let opened = false;
   let cancelled = false;
   let flushHandle = 0;
   let pendingMessages = [];
@@ -33,7 +32,6 @@ export function createAlertsSocket(onMessage) {
   };
 
   ws.onopen = () => {
-    opened = true;
     if (cancelled) {
       ws.close();
       return;
@@ -44,7 +42,6 @@ export function createAlertsSocket(onMessage) {
   ws.onerror = () => {};
 
   ws.onclose = () => {
-    opened = false;
   };
 
   ws.onmessage = (event) => {
