@@ -123,6 +123,17 @@ Docker is not needed for normal sharing or local development. If you use it, fir
 docker compose up --build
 ```
 
+## Share a browser-only demo with friends
+
+This repository includes a [Render Blueprint](render.yaml). It builds the React app and FastAPI API into one hosted service, so friends only need the resulting URL—no Python, Node.js, Docker, or local configuration.
+
+1. Push this repository to GitHub.
+2. In Render, select **New +** → **Blueprint** and connect the repository.
+3. Render reads `render.yaml` and creates the service plus a persistent disk for the demo database. This requires a paid web-service plan; a free service has an ephemeral filesystem and would lose accounts/data after restart.
+4. Deploy, then share the service URL. Users can register their own demo account from the app.
+
+The hosted service supports dashboard, analysis modules, simulation, and PCAP/demo-oriented workflows. Browser-hosted apps cannot capture a visitor's Wi-Fi or Ethernet interface; live capture remains an optional local capability that requires Npcap/Scapy on the capture machine.
+
 ## Before pushing to GitHub
 
 ```powershell

@@ -1,7 +1,10 @@
 import asyncio
+import os
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -12,6 +15,8 @@ from app.services.demo_feed import generate_demo_feed_item, generate_demo_notifi
 from app.services.lockdown_controller import get_security_state
 from app.services.simulation import simulated_attack_event
 from app.services.websocket_manager import ws_manager
+from app.services.unidirectional.engine import traffic_engine
+from app.services.realtime.manager import live_capture
 
 
 app = FastAPI(title=settings.app_name)
@@ -59,7 +64,26 @@ app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": settings.app_name}
+    database_status = "healthy"
+    try:
+        with engine.connect() as connection:
+            connection.exec_driver_sql("SELECT 1")
+    except Exception:
+        database_status = "unavailable"
+
+    capture_status = getattr(live_capture, "status", "STOPPED").lower()
+    capture_health = "healthy" if capture_status in {"live", "stopped", "paused"} else "degraded"
+    return {
+        "status": "ok" if database_status == "healthy" else "degraded",
+        "service": settings.app_name,
+        "backend": "healthy",
+        "database": database_status,
+        "capture": capture_health,
+        "capture_status": capture_status,
+        "simulation_status": traffic_engine.mode.lower(),
+        "ml": "not_configured",
+        "websocket": "healthy",
+    }
 
 
 async def simulation_loop():
@@ -173,3 +197,18 @@ async def on_shutdown():
     security_task = getattr(app.state, "security_center_task", None)
     if security_task:
         security_task.cancel()
+    await traffic_engine.stop()
+    await live_capture.stop()
+
+
+# In the hosted single-container build, FastAPI serves the compiled React app.
+# API and WebSocket routes are registered above, so this fallback never replaces them.
+web_dist_setting = os.environ.get("WEB_DIST_DIR")
+web_dist_dir = Path(web_dist_setting) if web_dist_setting else None
+if web_dist_dir and web_dist_dir.is_dir():
+    @app.get("/{client_path:path}", include_in_schema=False)
+    async def frontend_application(client_path: str):
+        requested = web_dist_dir / client_path
+        if client_path and requested.is_file():
+            return FileResponse(requested)
+        return FileResponse(web_dist_dir / "index.html")

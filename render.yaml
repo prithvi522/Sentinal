@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: sentinelai-os
+    runtime: docker
+    # Persistent disks require a paid Render web-service plan.
+    plan: 0.5c-512mb
+    healthCheckPath: /health
+    disk:
+      name: sentinelai-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        value: sqlite:////var/data/sentinelai.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEB_DIST_DIR
+        value: /app/static

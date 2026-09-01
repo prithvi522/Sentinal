@@ -29,6 +29,7 @@ const LockdownMode = lazy(() => import('./pages/LockdownMode'));
 const ThreatPrediction = lazy(() => import('./pages/ThreatPrediction'));
 const AIRecommendations = lazy(() => import('./pages/AIRecommendations'));
 const NewUI = lazy(() => import('./pages/NewUI'));
+const UnidirectionalTraffic = lazy(() => import('./pages/UnidirectionalTraffic'));
 
 function RouteFallback() {
   return (
@@ -71,6 +72,7 @@ export default function App() {
       { path: '/threat-map', element: <ProtectedRoute><ThreatMap /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/command-center', element: <ProtectedRoute><CommandCenter /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/new-ui', element: <ProtectedRoute><NewUI /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/unidirectional', element: <ProtectedRoute><UnidirectionalTraffic /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/voice-assistant', element: <ProtectedRoute><VoiceAssistant /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/soc-activity-feed', element: <ProtectedRoute><SocActivityFeed /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/integrity-monitor', element: <ProtectedRoute><IntegrityMonitor /></ProtectedRoute>, errorElement: <RouteError /> },

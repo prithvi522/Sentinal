@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Shield, Radar, FlaskConical, Siren, Bot, LogOut, Mic, CircleCheckBig, TriangleAlert, CircleSlash2, RefreshCw, ArrowUpRight, Database, ShieldAlert, ScrollText, Biohazard, Globe2, Bell, Zap, Radio, ScanLine } from 'lucide-react';
+import { Shield, Radar, FlaskConical, Siren, Bot, LogOut, Mic, CircleCheckBig, TriangleAlert, CircleSlash2, RefreshCw, ArrowUpRight, Database, ShieldAlert, ScrollText, Biohazard, Globe2, Bell, Zap, Radio, ScanLine, Waypoints } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { useState, useEffect, useRef } from 'react';
@@ -17,6 +17,7 @@ const navItems = [
   { to: '/prompt-firewall', label: 'Prompt Firewall', icon: Radar },
   { to: '/threat-hunter', label: 'Threat Hunter', icon: Siren },
   { to: '/attack-simulator', label: 'Attack Simulator', icon: TriangleAlert },
+  { to: '/unidirectional', label: 'Unidirectional Traffic', icon: Waypoints },
   { to: '/phishing-detector', label: 'Phishing', icon: ShieldAlert },
   { to: '/log-analyzer', label: 'Log Analyzer', icon: ScrollText },
   { to: '/malware-analyzer', label: 'Malware', icon: Biohazard },
