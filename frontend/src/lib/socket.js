@@ -66,7 +66,9 @@ export function createAlertsSocket(onMessage) {
       flushHandle = 0;
     }
     pendingMessages = [];
-    if (opened && ws.readyState <= WebSocket.OPEN) {
+    // A route can unmount while the socket is still connecting. Close both
+    // CONNECTING and OPEN sockets so they cannot complete after unmount.
+    if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN) {
       ws.close();
     }
   };

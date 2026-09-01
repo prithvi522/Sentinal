@@ -18,11 +18,13 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingReload, setPendingReload] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const loadMetrics = useCallback(async (options = {}) => {
     const data = await getEnterpriseDashboard(options);
     setMetrics(data);
     setLastUpdated(new Date());
+    setLoadError('');
     return true;
   }, []);
 
@@ -34,6 +36,9 @@ export default function Dashboard() {
     let active = true;
 
     loadMetrics()
+      .catch(() => {
+        if (active) setLoadError('Dashboard telemetry is temporarily unavailable.');
+      })
       .finally(() => {
         if (active) {
           setLoading(false);
@@ -71,7 +76,7 @@ export default function Dashboard() {
     if (!pendingReload) return undefined;
     const timer = window.setTimeout(() => {
       setPendingReload(false);
-      void loadMetrics().catch(() => {});
+      void loadMetrics().catch(() => setLoadError('Dashboard telemetry is temporarily unavailable.'));
     }, 180);
 
     return () => window.clearTimeout(timer);
@@ -103,6 +108,8 @@ export default function Dashboard() {
     setRefreshing(true);
     try {
       await loadMetrics({ force: true });
+    } catch {
+      setLoadError('Dashboard telemetry is temporarily unavailable.');
     } finally {
       setRefreshing(false);
     }
@@ -114,7 +121,14 @@ export default function Dashboard() {
         <div>
           <h1 className="font-display text-3xl md:text-4xl text-cyan tracking-wide">SentinelAI SOC Command Center</h1>
           <p className="text-white/70">Real-time cyber defense analytics, threat telemetry, and AI assistant orchestration.</p>
-          <p className="text-white/45 text-sm mt-1">{lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString()}` : 'Waiting for telemetry...'}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="threat-signal" aria-label="Live threat signal is active">
+              <span className="threat-signal__core" aria-hidden="true" />
+              <span>Live threat signal</span>
+              <strong>{metrics?.active_threats || metrics?.critical_alerts || 0} active</strong>
+            </div>
+            <p className="text-white/45 text-sm">{lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString()}` : 'Waiting for telemetry...'}</p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -125,6 +139,11 @@ export default function Dashboard() {
         </div>
 
         {loading && <div className="glass-card p-4">Loading real-time security posture...</div>}
+        {loadError && (
+          <div role="status" className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+            {loadError} You can retry with “Refresh Dashboard”.
+          </div>
+        )}
 
         {metrics && (
           <>
