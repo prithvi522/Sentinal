@@ -245,12 +245,12 @@ AI ANALYSIS 01011010 00110110`}
 
       {/* LEFT SIDE: Login Panel Container */}
       <div
-        className="auth-form-zone absolute left-0 top-0 h-full flex items-center pointer-events-none"
+        className="auth-form-zone absolute left-1/2 top-0 h-full flex -translate-x-1/2 items-center justify-center pointer-events-none"
         style={{
-          width: '500px',
-          maxWidth: '90vw',
+          width: '420px',
+          maxWidth: '88vw',
           zIndex: 10,
-          paddingLeft: '8vw'
+          paddingLeft: 0
         }}
       >
 
@@ -260,15 +260,15 @@ AI ANALYSIS 01011010 00110110`}
           className="auth-login-card pointer-events-auto w-full"
           style={{
             background: 'linear-gradient(110deg, rgba(2, 12, 22, .34), rgba(2, 12, 22, .08))',
-            border: '1px solid rgba(0, 210, 240, .22)',
+            border: '1px solid rgba(0, 200, 240, .22)',
             borderRadius: '14px',
-            padding: '2.25rem 2.5rem',
+            padding: '1.0rem 1.0rem',
             boxShadow: '0 0 28px rgba(0, 167, 200, .08), inset 0 0 30px rgba(0, 110, 145, .035)',
             animation: 'none'
           }}
         >
           {/* SentinelAI Logo & Branding */}
-          <div className="mb-10 text-left">
+          <div className="mb-6 text-left">
             <div className="flex items-center gap-4 mb-3">
               <div className="auth-shield" aria-hidden="true"><ShieldCheck size={42} strokeWidth={1.7} /></div>
               <div>
@@ -279,7 +279,7 @@ AI ANALYSIS 01011010 00110110`}
               </div>
             </div>
             <p
-              className="mt-10 text-xl uppercase tracking-[0.25em] mb-3 font-semibold"
+              className="mt-5 text-xl uppercase tracking-[0.25em] mb-2 font-semibold"
               style={{ color: 'rgba(0, 229, 255, 0.9)' }}
             >
               Secure SOC Access
@@ -293,7 +293,7 @@ AI ANALYSIS 01011010 00110110`}
           </div>
 
           {/* Input Fields */}
-          <div className="space-y-5 mb-6">
+          <div className="space-y-4 mb-4">
             {/* Email Input */}
             <div>
               <label
@@ -374,7 +374,7 @@ AI ANALYSIS 01011010 00110110`}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 px-6 rounded-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 transition-all duration-300 mb-6 text-sm"
+            className="w-full py-3 px-6 rounded-lg font-bold uppercase tracking-wider flex items-center justify-center gap-3 transition-all duration-300 mb-4 text-sm"
             style={{
               background: loading
                 ? 'rgba(0, 235, 255, 0.15)'
@@ -383,7 +383,7 @@ AI ANALYSIS 01011010 00110110`}
               border: '1.5px solid rgba(0, 235, 255, 0.42)',
               cursor: loading ? 'not-allowed' : 'pointer',
               boxShadow: '0 0 25px rgba(0, 220, 255, 0.12)',
-              height: '60px'
+              height: '56px'
             }}
             onMouseEnter={(e) => {
               if (!loading) {
@@ -425,7 +425,7 @@ AI ANALYSIS 01011010 00110110`}
 
           {/* System Status */}
           <div
-            className="text-xs font-mono uppercase tracking-wider text-center flex items-center justify-center gap-2 mb-4"
+            className="text-xs font-mono uppercase tracking-wider text-center flex items-center justify-center gap-2 mb-3"
             style={{ color: 'rgba(100, 200, 100, 0.68)' }}
           >
             <span
@@ -452,7 +452,7 @@ AI ANALYSIS 01011010 00110110`}
           </p>
 
           {/* Register Link */}
-          <div className="text-center mt-5 text-xs">
+          <div className="text-center mt-3 text-xs">
             <span style={{ color: 'rgba(160, 160, 160, 0.7)' }}>
               No account?{' '}
             </span>
@@ -567,7 +567,7 @@ AI ANALYSIS 01011010 00110110`}
         }
 
         .auth-input {
-          height: 62px;
+          height: 58px;
           padding: 0 3.2rem 0 4rem;
           background: rgba(3, 15, 27, .60);
           border-color: rgba(0, 210, 240, .30);
@@ -583,7 +583,7 @@ AI ANALYSIS 01011010 00110110`}
         }
 
         @media (max-width: 1024px) {
-          .auth-form-zone { width: 46vw !important; padding-left: 6vw !important; }
+          .auth-form-zone { width: 420px !important; padding-left: 0 !important; }
           .auth-login-card { padding: 1.75rem 2rem !important; }
         }
 
