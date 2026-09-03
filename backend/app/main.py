@@ -181,6 +181,11 @@ async def security_center_loop():
 @app.on_event("startup")
 async def on_startup():
     Base.metadata.create_all(bind=engine)
+    # The existing passive capture manager forwards only aggregate metadata into
+    # the SIH engine. It never gives the engine a transmit/control capability.
+    await traffic_engine.start_workers()
+    # Submit to bounded SIH workers so capture callbacks never run detector work.
+    live_capture.set_flow_sink(traffic_engine.submit)
     app.state.simulation_task = asyncio.create_task(simulation_loop())
     app.state.demo_feed_task = asyncio.create_task(demo_feed_loop())
     app.state.security_center_task = asyncio.create_task(security_center_loop())
@@ -197,7 +202,7 @@ async def on_shutdown():
     security_task = getattr(app.state, "security_center_task", None)
     if security_task:
         security_task.cancel()
-    await traffic_engine.stop()
+    await traffic_engine.shutdown()
     await live_capture.stop()
 
 

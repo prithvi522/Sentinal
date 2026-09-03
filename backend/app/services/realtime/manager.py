@@ -10,6 +10,7 @@ from typing import Any
 
 from app.services.websocket_manager import ConnectionManager
 from app.services.realtime.baseline import AdaptiveBaseline
+from app.core.config import settings
 
 
 class LiveCaptureManager:
@@ -34,6 +35,12 @@ class LiveCaptureManager:
         self._stop = threading.Event()
         self.ws = ConnectionManager()
         self._publisher: asyncio.Task | None = None
+        self._flow_sink: Any = None
+        self._last_emitted_packets: dict[tuple[str, str, int, int, str], int] = {}
+
+    def set_flow_sink(self, sink: Any) -> None:
+        """Register the passive SIH flow consumer. The sink receives metadata only."""
+        self._flow_sink = sink
 
     @staticmethod
     def interfaces() -> dict[str, Any]:
@@ -56,6 +63,10 @@ class LiveCaptureManager:
             from scapy.all import AsyncSniffer
         except Exception as exc:
             self.status, self.error = "ERROR", f"Scapy is unavailable: {exc}"
+            return self.overview()
+        allowed = {name.strip() for name in settings.unidirectional_allowed_interfaces.split(",") if name.strip()}
+        if allowed and interface not in allowed:
+            self.status, self.error = "ERROR", "Interface is not allow-listed for the passive ingest boundary"
             return self.overview()
         self.status, self.interface, self.error = "STARTING", interface, None
         self._stop.clear()
@@ -116,7 +127,7 @@ class LiveCaptureManager:
 
     def _normalize(self, packet: Any) -> dict[str, Any] | None:
         try:
-            from scapy.all import IP, IPv6, TCP, UDP, ICMP
+            from scapy.all import DNS, IP, IPv6, TCP, UDP, ICMP
             network = packet.getlayer(IP) or packet.getlayer(IPv6)
             if not network:
                 return None
@@ -126,7 +137,10 @@ class LiveCaptureManager:
             destination_port = int(getattr(transport, "dport", 0) or 0)
             if destination_port == 53 or source_port == 53: protocol = "DNS"
             elif destination_port == 443 or source_port == 443: protocol = "TLS"
-            return {"time": datetime.now(timezone.utc).isoformat(), "source": network.src, "destination": network.dst, "source_port": source_port, "destination_port": destination_port, "protocol": protocol, "size": len(packet), "tcp_flags": str(getattr(transport, "flags", "")), "risk": "LOW"}
+            dns_query = None
+            if packet.haslayer(DNS) and int(packet[DNS].qr) == 0 and getattr(packet[DNS], "qd", None):
+                dns_query = bytes(packet[DNS].qd.qname).rstrip(b".").decode("idna", errors="replace")[:255]
+            return {"time": datetime.now(timezone.utc).isoformat(), "source": network.src, "destination": network.dst, "source_port": source_port, "destination_port": destination_port, "protocol": protocol, "size": len(packet), "tcp_flags": str(getattr(transport, "flags", "")), "dns_query": dns_query, "risk": "LOW"}
         except Exception:
             return None
 
@@ -134,7 +148,12 @@ class LiveCaptureManager:
         key = (packet["source"], packet["destination"], packet["source_port"], packet["destination_port"], packet["protocol"])
         now = time.monotonic()
         with self._lock:
-            flow = self.flows.setdefault(key, {"source": packet["source"], "destination": packet["destination"], "port": packet["destination_port"], "protocol": packet["protocol"], "packets": 0, "bytes": 0, "first_seen": packet["time"], "last_seen": packet["time"], "started": now, "risk": "LOW"})
+            flow = self.flows.setdefault(key, {"source": packet["source"], "destination": packet["destination"], "source_port": packet["source_port"], "port": packet["destination_port"], "protocol": packet["protocol"], "packets": 0, "bytes": 0, "first_seen": packet["time"], "last_seen": packet["time"], "started": now, "last_tick": now, "iat_values": deque(maxlen=64), "dns_queries": deque(maxlen=50), "syn_count": 0, "risk": "LOW"})
+            if flow["packets"]:
+                flow["iat_values"].append(now - flow["last_tick"])
+            flow["last_tick"] = now
+            if "S" in packet["tcp_flags"]: flow["syn_count"] += 1
+            if packet.get("dns_query"): flow["dns_queries"].append(packet["dns_query"])
             flow["packets"] += 1; flow["bytes"] += packet["size"]; flow["last_seen"] = packet["time"]; flow["duration"] = round(now - flow["started"], 2)
             self.protocols[packet["protocol"]] += 1
             self.protocol_deviations[packet["protocol"]] = self.baseline.observe(f"packet_size:{packet['protocol']}", float(packet["size"]))
@@ -144,8 +163,36 @@ class LiveCaptureManager:
 
     async def _publish_loop(self) -> None:
         while self.status == "LIVE":
+            await self._emit_sih_flows()
             await self.ws.broadcast_json({"type": "traffic_update", "timestamp": datetime.now(timezone.utc).isoformat(), "payload": self.overview()})
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(settings.unidirectional_live_emit_interval_seconds)
+
+    async def _emit_sih_flows(self) -> None:
+        """Forward only changed aggregate metadata into the shared SIH pipeline."""
+        if self._flow_sink is None:
+            return
+        with self._lock:
+            snapshots = [(key, dict(value)) for key, value in self.flows.items()]
+        for key, flow in snapshots:
+            previous = self._last_emitted_packets.get(key, 0)
+            if flow["packets"] <= previous:
+                continue
+            self._last_emitted_packets[key] = flow["packets"]
+            duration = max(float(flow.get("duration", 0)), 0.001)
+            metadata = {
+                "source_ip": flow["source"], "destination_ip": flow["destination"], "source_port": flow["source_port"],
+                "destination_port": flow["port"], "protocol": flow["protocol"],
+                "packet_count": flow["packets"], "byte_count": flow["bytes"],
+                "duration_seconds": duration, "iat_mean": sum(flow["iat_values"]) / len(flow["iat_values"]) if flow["iat_values"] else 0.0,
+                "iat_std": (sum((x - (sum(flow["iat_values"]) / len(flow["iat_values"]))) ** 2 for x in flow["iat_values"]) / len(flow["iat_values"])) ** .5 if flow["iat_values"] else 0.0,
+                "syn_rate": flow["syn_count"] / duration, "dns_queries": list(flow["dns_queries"]),
+                "inbound_bytes": 0, "outbound_bytes": 0,
+            }
+            try:
+                await self._flow_sink(metadata, "live_passive_feed")
+            except Exception:
+                # Capture must continue even if analysis/database/WebSocket is degraded.
+                continue
 
 
 live_capture = LiveCaptureManager()
