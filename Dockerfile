@@ -10,7 +10,6 @@ WORKDIR /app
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
-COPY backend/seed ./seed
 COPY --from=frontend-build /frontend/dist ./static
 ENV WEB_DIST_DIR=/app/static
 EXPOSE 8000
