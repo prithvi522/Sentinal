@@ -12,4 +12,3 @@ env/
 .env
 generated_reports/
 scripts/
-seed/
