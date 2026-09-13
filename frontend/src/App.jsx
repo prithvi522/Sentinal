@@ -73,6 +73,7 @@ export default function App() {
       { path: '/command-center', element: <ProtectedRoute><CommandCenter /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/new-ui', element: <ProtectedRoute><NewUI /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/unidirectional', element: <ProtectedRoute><UnidirectionalTraffic /></ProtectedRoute>, errorElement: <RouteError /> },
+      { path: '/unidirectional-defense', element: <ProtectedRoute><UnidirectionalTraffic /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/voice-assistant', element: <ProtectedRoute><VoiceAssistant /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/soc-activity-feed', element: <ProtectedRoute><SocActivityFeed /></ProtectedRoute>, errorElement: <RouteError /> },
       { path: '/integrity-monitor', element: <ProtectedRoute><IntegrityMonitor /></ProtectedRoute>, errorElement: <RouteError /> },

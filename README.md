@@ -146,3 +146,30 @@ git push -u origin main
 ```
 
 Use `git remote -v` to confirm the destination before pushing.
+# SIH26145 — Unidirectional Traffic Defense
+
+SentinelAI OS includes a flagship, passive **Unidirectional Defense** capability for SIH26145. It consumes PCAP-derived or synthetic flow metadata from a one-way data-diode boundary and performs DDoS, C2 beaconing, DGA/DNS tunnelling, encrypted-session metadata, reconnaissance, and exfiltration detection.
+
+```mermaid
+flowchart LR
+  P[Production network] --> D[Data diode: read only]
+  D --> I[Passive flow ingestion]
+  I --> F[Feature and baseline analysis]
+  F --> E[Heuristics + ensemble scoring]
+  E --> A[Evidence-backed alert]
+  A --> S[PostgreSQL / WebSocket SOC]
+```
+
+Security boundary: this module does not transmit packets, probe monitored hosts, decrypt TLS/QUIC payloads, block traffic, or send mitigation commands across the diode. The local demo generates synthetic flows that pass through the same backend detection path as observed flow input.
+
+Use `/unidirectional-defense` (the legacy `/unidirectional` route remains available). The authenticated API exposes status, metrics, flows, alerts, replay, synthetic dataset generation, and an on-demand locally measured benchmark under `/api/v1/unidirectional`.
+
+## Production passive-feed configuration
+
+For a real deployment, run SentinelAI in the monitoring enclave and connect only its capture NIC to the receive side of the TAP/data diode. Set `UNIDIRECTIONAL_ALLOWED_INTERFACES` to that NIC and set `UNIDIRECTIONAL_PROTECTED_CIDRS` to the monitored-network CIDRs. These values make the interface boundary explicit and enable direction-aware exfiltration analysis. Leave no route, management tunnel, or mitigation integration from SentinelAI back to production.
+
+The live capture path uses a bounded capture queue and forwards changed aggregate flow metadata to bounded SIH workers. The accepted `POST /api/v1/unidirectional/ingest/flows` contract is the integration point for a NetFlow/IPFIX/sFlow collector or diode relay that normalizes exported records; SentinelAI does not establish a reverse connection to it.
+
+### Model and validation status
+
+Rule and statistical detection is always available. The optional local Isolation Forest starts only after sufficient benign observations have been accumulated; absence of scikit-learn or a trained model keeps the platform in explicit heuristic/statistical mode. Synthetic traffic supports functional pipeline testing only and must not be treated as an accuracy evaluation. Use the benchmark endpoint to record locally measured throughput; do not extrapolate it as a production capacity guarantee.

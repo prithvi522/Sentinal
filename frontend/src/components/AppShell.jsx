@@ -17,7 +17,7 @@ const navItems = [
   { to: '/prompt-firewall', label: 'Prompt Firewall', icon: Radar },
   { to: '/threat-hunter', label: 'Threat Hunter', icon: Siren },
   { to: '/attack-simulator', label: 'Attack Simulator', icon: TriangleAlert },
-  { to: '/unidirectional', label: 'Unidirectional Traffic', icon: Waypoints },
+  { to: '/unidirectional-defense', label: 'Unidirectional Defense · SIH26145', icon: Waypoints },
   { to: '/phishing-detector', label: 'Phishing', icon: ShieldAlert },
   { to: '/log-analyzer', label: 'Log Analyzer', icon: ScrollText },
   { to: '/malware-analyzer', label: 'Malware', icon: Biohazard },

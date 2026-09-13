@@ -56,6 +56,15 @@ class Settings(BaseSettings):
     simulation_interval_seconds: int = 8
     # Maximum upload size for code scans (bytes). Set to null/None to disable limit.
     max_upload_size_bytes: int | None = 50 * 1024 * 1024  # 50 MB
+    unidirectional_enabled: bool = True
+    unidirectional_queue_size: int = 1000
+    unidirectional_workers: int = 1
+    unidirectional_benchmark_enabled: bool = True
+    unidirectional_replay_speed: float = 1.0
+    max_pcap_size_bytes: int = 250 * 1024 * 1024
+    unidirectional_allowed_interfaces: str = ""
+    unidirectional_live_emit_interval_seconds: float = 1.0
+    unidirectional_protected_cidrs: str = ""
 
     # Resolve the backend/.env file relative to this config file so env vars are loaded
     # reliably even when the process CWD is elsewhere.

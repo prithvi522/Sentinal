@@ -18,7 +18,6 @@ from app.services.websocket_manager import ws_manager
 from app.services.unidirectional.engine import traffic_engine
 from app.services.realtime.manager import live_capture
 
-
 app = FastAPI(title=settings.app_name)
 
 # Allow the frontend during development. Be restrictive in production.
@@ -181,6 +180,11 @@ async def security_center_loop():
 @app.on_event("startup")
 async def on_startup():
     Base.metadata.create_all(bind=engine)
+    # The existing passive capture manager forwards only aggregate metadata into
+    # the SIH engine. It never gives the engine a transmit/control capability.
+    await traffic_engine.start_workers()
+    # Submit to bounded SIH workers so capture callbacks never run detector work.
+    live_capture.set_flow_sink(traffic_engine.submit)
     app.state.simulation_task = asyncio.create_task(simulation_loop())
     app.state.demo_feed_task = asyncio.create_task(demo_feed_loop())
     app.state.security_center_task = asyncio.create_task(security_center_loop())
@@ -197,7 +201,7 @@ async def on_shutdown():
     security_task = getattr(app.state, "security_center_task", None)
     if security_task:
         security_task.cancel()
-    await traffic_engine.stop()
+    await traffic_engine.shutdown()
     await live_capture.stop()
 
 
@@ -208,7 +212,9 @@ web_dist_dir = Path(web_dist_setting) if web_dist_setting else None
 if web_dist_dir and web_dist_dir.is_dir():
     @app.get("/{client_path:path}", include_in_schema=False)
     async def frontend_application(client_path: str):
-        requested = web_dist_dir / client_path
-        if client_path and requested.is_file():
-            return FileResponse(requested)
-        return FileResponse(web_dist_dir / "index.html")
+        assert web_dist_dir is not None
+        requested_file = web_dist_dir / client_path
+        if requested_file.is_file():
+            return FileResponse(requested_file)
+        else:
+            return FileResponse(web_dist_dir / "index.html")
