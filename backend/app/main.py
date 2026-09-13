@@ -18,7 +18,6 @@ from app.services.websocket_manager import ws_manager
 from app.services.unidirectional.engine import traffic_engine
 from app.services.realtime.manager import live_capture
 
-
 app = FastAPI(title=settings.app_name)
 
 # Allow the frontend during development. Be restrictive in production.
@@ -213,7 +212,9 @@ web_dist_dir = Path(web_dist_setting) if web_dist_setting else None
 if web_dist_dir and web_dist_dir.is_dir():
     @app.get("/{client_path:path}", include_in_schema=False)
     async def frontend_application(client_path: str):
-        requested = web_dist_dir / client_path
-        if client_path and requested.is_file():
-            return FileResponse(requested)
-        return FileResponse(web_dist_dir / "index.html")
+        assert web_dist_dir is not None
+        requested_file = web_dist_dir / client_path
+        if requested_file.is_file():
+            return FileResponse(requested_file)
+        else:
+            return FileResponse(web_dist_dir / "index.html")
