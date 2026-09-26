@@ -51,6 +51,16 @@ ATTACK_LIBRARY = [
     },
 ]
 
+ZERO_DAY_ATTACK = {
+    "attack": "Zero-Day Exploit Attempt",
+    "target": "Unpatched Web Application",
+    "severity": "CRITICAL",
+    "status": "Contained",
+    "indicators": ["unknown exploit behavior", "unexpected process activity", "abnormal outbound traffic"],
+    "zero_day": True,
+    "patch_status": "No vendor patch available",
+}
+
 
 def _risk_score(severity: str) -> int:
     weights = {
@@ -63,8 +73,8 @@ def _risk_score(severity: str) -> int:
     return random.randint(low, high)
 
 
-def generate_attack_event() -> dict:
-    template = random.choice(ATTACK_LIBRARY)
+def generate_attack_event(zero_day: bool = False) -> dict:
+    template = ZERO_DAY_ATTACK if zero_day else random.choice(ATTACK_LIBRARY)
     risk_score = _risk_score(template["severity"])
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     source_octets = (random.randint(10, 223), random.randint(0, 255), random.randint(1, 254))
@@ -79,18 +89,23 @@ def generate_attack_event() -> dict:
         "risk_score": risk_score,
         "source_ip": f"10.{source_octets[0]}.{source_octets[1]}.{source_octets[2]}",
         "indicators": random.sample(template["indicators"], k=min(2, len(template["indicators"]))),
+        "zero_day": template.get("zero_day", False),
+        "patch_status": template.get("patch_status"),
     }
 
 
 def build_terminal_logs(event: dict) -> list[str]:
-    return [
+    logs = [
         f"Scanning target: {event['target']}...",
         f"Attack detected: {event['attack']} [{event['severity']}]",
         f"Risk score evaluated at {event['risk_score']}/100...",
         f"Firewall state: {event['status']}...",
-        "Threat neutralized...",
+        "Containment actions recorded...",
         "Generating AI report...",
     ]
+    if event.get("zero_day"):
+        logs.insert(2, "Known exploit signature: unavailable; behavior-based detection engaged...")
+    return logs
 
 
 async def build_ai_analysis(event: dict) -> dict:
@@ -109,6 +124,22 @@ async def build_ai_analysis(event: dict) -> dict:
         ],
         "copilot_summary": "SentinelAI Copilot recommends immediate containment, evidence collection, and validation of the exposed control surface.",
     }
+    if event.get("zero_day"):
+        fallback.update({
+            "what_it_is": "A simulated zero-day attempt exploits a hypothetical vulnerability with no known patch or detection signature.",
+            "why_dangerous": "Traditional signature-based defenses may miss the behavior before the vulnerability is understood and patched.",
+            "mitigation_steps": [
+                "Isolate the affected application or host while preserving forensic evidence.",
+                "Apply temporary virtual patching or disable the exposed feature if operationally safe.",
+                "Monitor process, identity, and outbound network behavior for related activity.",
+            ],
+            "recommended_fixes": [
+                "Contact the software vendor and track an official security advisory and patch.",
+                "Add compensating WAF or network controls around the vulnerable surface.",
+                "Validate recovery and hunt for indicators across other exposed systems.",
+            ],
+            "copilot_summary": "Treat this as an unpatched exposure: contain the affected surface, preserve evidence, and use behavior-based monitoring until a vendor fix is available.",
+        })
 
     prompt = (
         f"Attack: {event['attack']}\n"
@@ -116,6 +147,8 @@ async def build_ai_analysis(event: dict) -> dict:
         f"Severity: {event['severity']}\n"
         f"Status: {event['status']}\n"
         f"Risk score: {event['risk_score']}\n"
+        f"Zero-day scenario: {event.get('zero_day', False)}\n"
+        f"Patch status: {event.get('patch_status') or 'Not applicable'}\n"
         "Return JSON with keys: what_it_is, why_dangerous, mitigation_steps, recommended_fixes, copilot_summary. "
         "Keep the response short, practical, and suitable for a SOC operator."
     )

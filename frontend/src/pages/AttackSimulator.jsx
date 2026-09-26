@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, Play, RefreshCcw, ShieldAlert, Sparkles } from 'lucide-react';
+import { Activity, Play, RefreshCcw, ShieldAlert, Sparkles, Zap } from 'lucide-react';
 import AppShell from '../components/AppShell';
 import { api } from '../lib/api';
 import { createAlertsSocket } from '../lib/socket';
@@ -49,11 +49,11 @@ export default function AttackSimulator() {
     setStatus(`${event.attack} ${event.status.toLowerCase()} at ${event.target}`);
   };
 
-  async function simulateAttack() {
+  async function simulateAttack(zeroDay = false) {
     setLoading(true);
-    setStatus('Simulating attack...');
+    setStatus(zeroDay ? 'Simulating zero-day scenario...' : 'Simulating attack...');
     try {
-      const { data } = await api.get('/simulate-attack');
+      const { data } = await api.get('/simulate-attack', { params: zeroDay ? { zero_day: true } : {} });
       pushEvent(data);
       setTerminalLines([]);
     } catch (error) {
@@ -119,6 +119,10 @@ export default function AttackSimulator() {
                 <Play size={16} />
                 {loading ? 'Simulating...' : 'Simulate Attack'}
               </button>
+              <button onClick={() => simulateAttack(true)} disabled={loading} className="inline-flex items-center gap-2 px-4 py-2 rounded border border-rose-400/40 bg-rose-500/10 text-rose-200 font-semibold hover:bg-rose-500/20">
+                <Zap size={16} />
+                Simulate Zero-Day
+              </button>
               <button onClick={() => setAutoMode((value) => !value)} className={`inline-flex items-center gap-2 px-4 py-2 rounded border ${autoMode ? 'border-lime-400 text-lime-200 bg-lime-400/10' : 'border-cyan/30 text-cyan bg-cyan/5'}`}>
                 <RefreshCcw size={16} className={autoMode ? 'animate-spin' : ''} />
                 {autoMode ? 'Auto Mode On' : 'Auto-Refresh Mode'}
@@ -134,6 +138,7 @@ export default function AttackSimulator() {
                 <p className="text-xs uppercase tracking-[0.25em] text-white/40">Live simulation</p>
                 <h2 className="font-display text-2xl text-white mt-1">{currentAttack?.attack || 'Awaiting first attack'}</h2>
                 <p className="text-white/60 mt-1">{status}</p>
+                {currentAttack?.zero_day && <p className="mt-2 text-xs font-semibold uppercase text-rose-300">Zero-day scenario · {currentAttack.patch_status}</p>}
               </div>
               <div className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${severityStyle[currentAttack?.severity] || 'border-white/10 bg-white/5 text-white/60'}`}>
                 <span className={`h-2.5 w-2.5 rounded-full ${severityDot[currentAttack?.severity] || 'bg-white/40'} animate-pulse`} />

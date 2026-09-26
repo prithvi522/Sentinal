@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -13,8 +13,12 @@ router = APIRouter()
 
 
 @router.get("/simulate-attack")
-async def simulate_attack(_: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    event = generate_attack_event()
+async def simulate_attack(
+    zero_day: bool = Query(False),
+    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    event = generate_attack_event(zero_day=zero_day)
     ai_analysis = await build_ai_analysis(event)
     terminal_logs = build_terminal_logs(event)
 
@@ -33,6 +37,8 @@ async def simulate_attack(_: User = Depends(get_current_user), db: Session = Dep
             "status": event["status"],
             "risk_score": event["risk_score"],
             "indicators": event["indicators"],
+            "zero_day": event["zero_day"],
+            "patch_status": event["patch_status"],
             "ai_analysis": ai_analysis,
             "terminal_logs": terminal_logs,
         },
